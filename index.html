@@ -11,12 +11,12 @@
         .header { text-align: center; padding: 10px; border-bottom: 2px solid #00b4d8; margin-bottom: 20px; }
         .card { background: #2b343b; padding: 20px; border-radius: 12px; border: 1px solid #3e4952; margin-bottom: 15px; }
         input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #3e4952; color: white; box-sizing: border-box; }
-        .btn { background: #00b4d8; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
-        .timer { position: sticky; top: 0; background: #ff4d4d; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 10px; z-index: 100; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #2b343b; }
-        th, td { border: 1px solid #3e4952; padding: 10px; text-align: center; }
-        .radio-group { display: flex; justify-content: center; gap: 5px; }
-        .yopiq-input { width: 90%; padding: 5px; background: #1c2329; border: 1px solid #00b4d8; color: white; border-radius: 4px; }
+        .btn { background: #00b4d8; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-add { background: #2ecc71; margin-bottom: 10px; }
+        .btn-remove { background: #e74c3c; padding: 5px 10px; width: auto; font-size: 12px; }
+        .q-row { background: #3e4952; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #00b4d8; }
+        .radio-group { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        .timer { position: sticky; top: 0; background: #ff4d4d; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; z-index: 100; }
     </style>
 </head>
 <body>
@@ -27,113 +27,115 @@
         tg.expand();
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
+        let questionCount = 0;
 
         window.onload = function() {
             const main = document.getElementById('main');
-            if(mode === 'create') {
-                renderCreateForm(main);
-            } else {
-                renderSolveForm(main);
-            }
+            if(mode === 'create') { renderCreateForm(main); } 
+            else { renderSolveForm(main); }
         };
 
+        // --- TEST YARATISH QISMI ---
         function renderCreateForm(el) {
             el.innerHTML = `
                 <div class="header"><h3>Yangi Test Yaratish</h3></div>
                 <div class="card">
-                    <label>Fanni tanlang:</label>
-                    <select id="subject">
-                        <option>Matematika</option><option>Fizika</option><option>Ona tili</option>
-                        <option>Kimyo</option><option>Biologiya</option><option>Tarix</option>
-                    </select>
-                    <input type="number" id="test_code" placeholder="Test kodi (masalan: 1840)">
-                    <div id="q_create_list"></div>
-                    <button class="btn" onclick="submitTest()">TESTNI SAQLASH</button>
+                    <input type="text" id="subject" placeholder="Fan nomi (matematika...)">
+                    <input type="number" id="test_code" placeholder="Test kodi">
+                    <div id="questions_container"></div>
+                    <button class="btn btn-add" onclick="addQuestion()">➕ Savol qo'shish</button>
+                    <button class="btn" onclick="submitCreatedTest()">✅ TESTNI SAQLASH</button>
                 </div>`;
-            generateTable('q_create_list', 'create');
+            addQuestion(); // Boshlanishiga bitta savol
         }
 
+        function addQuestion() {
+            questionCount++;
+            const container = document.getElementById('questions_container');
+            const div = document.createElement('div');
+            div.className = 'q-row';
+            div.id = `q_block_${questionCount}`;
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Savol №${questionCount}</span>
+                    <button class="btn btn-remove" onclick="removeQuestion(${questionCount})">O'chirish</button>
+                </div>
+                <select onchange="toggleInputType(${questionCount}, this.value)" id="type_${questionCount}">
+                    <option value="multi">Variantli (A,B,C,D)</option>
+                    <option value="open">Yopiq (Yozma)</option>
+                </select>
+                <div id="input_area_${questionCount}">
+                    <div class="radio-group">
+                        ${['A','B','C','D'].map(v => `<label><input type="radio" name="ans_${questionCount}" value="${v}">${v}</label>`).join('')}
+                    </div>
+                </div>`;
+            container.appendChild(div);
+        }
+
+        function toggleInputType(id, type) {
+            const area = document.getElementById(`input_area_${id}`);
+            if(type === 'open') {
+                area.innerHTML = `<input type="text" id="open_ans_${id}" placeholder="To'g'ri javobni yozing">`;
+            } else {
+                area.innerHTML = `<div class="radio-group">${['A','B','C','D'].map(v => `<label><input type="radio" name="ans_${id}" value="${v}">${v}</label>`).join('')}</div>`;
+            }
+        }
+
+        function removeQuestion(id) {
+            document.getElementById(`q_block_${id}`).remove();
+        }
+
+        function submitCreatedTest() {
+            let keys = {};
+            const rows = document.querySelectorAll('.q-row');
+            rows.forEach((row, index) => {
+                let qId = row.id.split('_')[2];
+                let type = document.getElementById(`type_${qId}`).value;
+                if(type === 'multi') {
+                    let sel = document.querySelector(`input[name="ans_${qId}"]:checked`);
+                    keys[index + 1] = sel ? sel.value : "";
+                } else {
+                    keys[index + 1] = document.getElementById(`open_ans_${qId}`).value.toUpperCase();
+                }
+            });
+
+            tg.sendData(JSON.stringify({
+                type: 'create',
+                test_code: document.getElementById('test_code').value,
+                subject: document.getElementById('subject').value,
+                keys: keys,
+                total: rows.length
+            }));
+        }
+
+        // --- TEST YECHISH QISMI (BOTDAN KELGAN KOD BO'YICHA) ---
+        // Bu qismda botdan kelgan savollar soniga qarab jadval chiqadi
         function renderSolveForm(el) {
             el.innerHTML = `
                 <div class="header"><h3>Javoblarni yuborish</h3></div>
                 <div class="card" id="code_area">
                     <input type="number" id="user_test_code" placeholder="Test kodini kiriting">
-                    <button class="btn" onclick="startSolving()">OK</button>
+                    <button class="btn" onclick="startSolving()">DAVOM ETISH</button>
                 </div>
                 <div id="solve_area" style="display:none;">
                     <div class="timer" id="timer">03:00:00</div>
-                    <div id="q_solve_list"></div>
-                    <button class="btn" onclick="sendResults()">YUBORISH</button>
+                    <div id="solve_list"></div>
+                    <button class="btn" onclick="submitResults()">YUBORISH</button>
                 </div>`;
         }
 
-        function generateTable(divId, type) {
-            let html = "<table><tr><th>№</th><th>Javob</th></tr>";
-            for(let i=1; i<=45; i++) {
-                html += `<tr><td>${i}</td><td>`;
-                let name = type === 'create' ? `c${i}` : `s${i}`;
-                if(i <= 32) {
-                    html += `<div class="radio-group">${['A','B','C','D'].map(v => `<label><input type="radio" name="${name}" value="${v}">${v}</label>`).join('')}</div>`;
-                } else if(i <= 35) {
-                    html += `<div class="radio-group">${['A','B','C','D','E','F'].map(v => `<label><input type="radio" name="${name}" value="${v}">${v}</label>`).join('')}</div>`;
-                } else {
-                    html += `<input type="text" class="yopiq-input" id="${type}_ans${i}" placeholder="Javob">`;
-                }
-                html += `</td></tr>`;
-            }
-            html += "</table>";
-            document.getElementById(divId).innerHTML = html;
-        }
-
         function startSolving() {
-            const code = document.getElementById('user_test_code').value;
-            if(!code) return alert("Kod kiriting!");
+            // Test kodi orqali bazadan savollar sonini olish kerak. 
+            // Hozircha standart 45 talik jadval generatsiya bo'ladi.
             document.getElementById('code_area').style.display = 'none';
             document.getElementById('solve_area').style.display = 'block';
-            generateTable('q_solve_list', 'solve');
-            startTimer();
-        }
-
-        function startTimer() {
-            let duration = 3 * 60 * 60;
-            let timerDisplay = document.getElementById('timer');
-            let interval = setInterval(() => {
-                let h = Math.floor(duration / 3600);
-                let m = Math.floor((duration % 3600) / 60);
-                let s = duration % 60;
-                timerDisplay.textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-                if (--duration < 0) { clearInterval(interval); sendResults(); }
-            }, 1000);
-        }
-
-        function collectAnswers(type) {
-            let ans = {};
+            let list = document.getElementById('solve_list');
+            let html = "<table>";
             for(let i=1; i<=45; i++) {
-                if(i <= 35) {
-                    let sel = document.querySelector(`input[name="${type === 'create' ? 'c' : 's'}${i}"]:checked`);
-                    ans[i] = sel ? sel.value : "";
-                } else {
-                    ans[i] = document.getElementById(`${type}_ans${i}`).value.trim().toUpperCase();
-                }
+                html += `<tr><td>${i}</td><td><input type="text" id="s_ans_${i}" class="yopiq-input" style="width:100%" placeholder="Javob"></td></tr>`;
             }
-            return ans;
-        }
-
-        function submitTest() {
-            tg.sendData(JSON.stringify({
-                type: 'create',
-                test_code: document.getElementById('test_code').value,
-                subject: document.getElementById('subject').value,
-                keys: collectAnswers('create')
-            }));
-        }
-
-        function sendResults() {
-            tg.sendData(JSON.stringify({
-                type: 'solve',
-                code: document.getElementById('user_test_code').value,
-                answers: collectAnswers('solve')
-            }));
+            html += "</table>";
+            list.innerHTML = html;
         }
     </script>
 </body>
