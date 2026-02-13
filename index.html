@@ -2,141 +2,180 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milliy Sertifikat Tizimi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Milliy Sertifikat Bot</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1c2329; color: white; padding: 15px; margin: 0; }
-        .container { max-width: 500px; margin: auto; }
-        .header { text-align: center; padding: 10px; border-bottom: 2px solid #00b4d8; margin-bottom: 20px; }
-        .card { background: #2b343b; padding: 20px; border-radius: 12px; border: 1px solid #3e4952; margin-bottom: 15px; }
-        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #3e4952; color: white; box-sizing: border-box; }
-        .btn { background: #00b4d8; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-add { background: #2ecc71; margin-bottom: 10px; }
-        .btn-remove { background: #e74c3c; padding: 5px 10px; width: auto; font-size: 12px; }
-        .q-row { background: #3e4952; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #00b4d8; }
-        .radio-group { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-        .timer { position: sticky; top: 0; background: #ff4d4d; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; z-index: 100; }
+        :root { --bg: #1c2329; --card: #2b343b; --accent: #00b4d8; --text: #ffffff; --border: #3e4952; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+        .container { max-width: 600px; margin: auto; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid var(--border); }
+        select, input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid var(--border); background: #1c2329; color: white; box-sizing: border-box; font-size: 16px; }
+        .btn { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        .timer { position: sticky; top: 10px; background: #e63946; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; z-index: 1000; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--card); border-radius: 8px; overflow: hidden; }
+        th, td { border: 1px solid var(--border); padding: 12px 8px; text-align: center; }
+        th { background: #343e46; font-size: 14px; }
+        
+        .options-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .options-grid-6 { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+        
+        .opt-label { display: block; padding: 8px 4px; border-radius: 4px; background: #3e4952; cursor: pointer; font-size: 12px; font-weight: bold; }
+        input[type="radio"] { display: none; }
+        input[type="radio"]:checked + .opt-label { background: var(--accent); color: white; }
+        
+        .yopiq-input { width: 100%; padding: 8px; background: #1c2329; border: 1px solid var(--accent); color: white; border-radius: 5px; text-align: center; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="container" id="main"></div>
 
-    <script>
-        let tg = window.Telegram.WebApp;
-        tg.expand();
-        const urlParams = new URLSearchParams(window.location.search);
-        const mode = urlParams.get('mode');
-        let questionCount = 0;
+<div class="container">
+    <div id="view-selection" class="header">
+        <h2 id="page-title">Milliy Sertifikat Testi</h2>
+    </div>
 
-        window.onload = function() {
-            const main = document.getElementById('main');
-            if(mode === 'create') { renderCreateForm(main); } 
-            else { renderSolveForm(main); }
+    <div id="timer-box" class="timer hidden">03:00:00</div>
+
+    <div id="create-section" class="hidden">
+        <div class="card">
+            <label>Fanni tanlang:</label>
+            <select id="subject-select">
+                <option value="Matematika">Matematika</option>
+                <option value="Fizika">Fizika</option>
+                <option value="Ona tili va adabiyot">Ona tili va adabiyot</option>
+                <option value="Kimyo">Kimyo</option>
+                <option value="Biologiya">Biologiya</option>
+                <option value="Tarix">Tarix</option>
+                <option value="Geografiya">Geografiya</option>
+            </select>
+            <input type="number" id="new-test-code" placeholder="Test kodi (masalan: 1840)">
+        </div>
+        <div id="create-table-container"></div>
+        <button class="btn" onclick="collectAndSend('create')" style="margin-top: 20px;">TESTNI SAQLASH</button>
+    </div>
+
+    <div id="solve-section" class="hidden">
+        <div id="code-entry" class="card">
+            <input type="number" id="solve-test-code" placeholder="Test kodini kiriting">
+            <button class="btn" onclick="initSolving()">OK</button>
+        </div>
+        
+        <div id="solve-table-container" class="hidden">
+            <div id="questions-area"></div>
+            <button class="btn" onclick="collectAndSend('solve')" style="margin-top: 20px; margin-bottom: 50px;">JAVOBLARNI YUBORISH</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let tg = window.Telegram.WebApp;
+    tg.expand();
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode'); // 'create' yoki 'solve'
+
+    window.onload = function() {
+        if(mode === 'create') {
+            document.getElementById('create-section').classList.remove('hidden');
+            document.getElementById('page-title').innerText = "Test Yaratish";
+            renderTable('create-table-container', 'c');
+        } else {
+            document.getElementById('solve-section').classList.remove('hidden');
+            document.getElementById('page-title').innerText = "Javob Yuborish";
+        }
+    };
+
+    function renderTable(containerId, prefix) {
+        let html = `<table><tr><th>№</th><th>Javobni belgilang</th></tr>`;
+        
+        for(let i = 1; i <= 45; i++) {
+            html += `<tr><td><b>${i}</b></td><td>`;
+            if(i <= 32) { // 4 talik (A,B,C,D)
+                html += `<div class="options-grid">` + 
+                    ['A','B','C','D'].map(v => `
+                        <label>
+                            <input type="radio" name="${prefix}-q${i}" value="${v}">
+                            <span class="opt-label">${v}</span>
+                        </label>`).join('') + `</div>`;
+            } else if(i <= 35) { // 6 talik (A,B,C,D,E,F)
+                html += `<div class="options-grid-6">` + 
+                    ['A','B','C','D','E','F'].map(v => `
+                        <label>
+                            <input type="radio" name="${prefix}-q${i}" value="${v}">
+                            <span class="opt-label">${v}</span>
+                        </label>`).join('') + `</div>`;
+            } else { // Yopiq (36-45)
+                html += `<input type="text" class="yopiq-input" id="${prefix}-ans${i}" placeholder="Javobni yozing...">`;
+            }
+            html += `</td></tr>`;
+        }
+        html += `</table>`;
+        document.getElementById(containerId).innerHTML = html;
+    }
+
+    function initSolving() {
+        const code = document.getElementById('solve-test-code').value;
+        if(!code) return alert("Test kodini kiriting!");
+        
+        document.getElementById('code-entry').classList.add('hidden');
+        document.getElementById('solve-table-container').classList.remove('hidden');
+        document.getElementById('timer-box').classList.remove('hidden');
+        
+        renderTable('questions-area', 's');
+        startTimer(180 * 60); // 3 soat
+    }
+
+    function startTimer(duration) {
+        let timer = duration, hours, minutes, seconds;
+        const display = document.getElementById('timer-box');
+        const countdown = setInterval(function () {
+            hours = parseInt(timer / 3600, 10);
+            minutes = parseInt((timer % 3600) / 60, 10);
+            seconds = parseInt(timer % 60, 10);
+
+            display.textContent = (hours < 10 ? "0" + hours : hours) + ":" + 
+                                  (minutes < 10 ? "0" + minutes : minutes) + ":" + 
+                                  (seconds < 10 ? "0" + seconds : seconds);
+
+            if (--timer < 0) {
+                clearInterval(countdown);
+                collectAndSend('solve'); // Vaqt tugasa avtomatik jo'natish
+            }
+        }, 1000);
+    }
+
+    function collectAndSend(type) {
+        const prefix = type === 'create' ? 'c' : 's';
+        const testCode = type === 'create' ? 
+            document.getElementById('new-test-code').value : 
+            document.getElementById('solve-test-code').value;
+
+        if(!testCode) return alert("Test kodini kiritish majburiy!");
+
+        let data = {
+            action: type,
+            test_code: testCode,
+            subject: type === 'create' ? document.getElementById('subject-select').value : null,
+            answers: {}
         };
 
-        // --- TEST YARATISH QISMI ---
-        function renderCreateForm(el) {
-            el.innerHTML = `
-                <div class="header"><h3>Yangi Test Yaratish</h3></div>
-                <div class="card">
-                    <input type="text" id="subject" placeholder="Fan nomi (matematika...)">
-                    <input type="number" id="test_code" placeholder="Test kodi">
-                    <div id="questions_container"></div>
-                    <button class="btn btn-add" onclick="addQuestion()">➕ Savol qo'shish</button>
-                    <button class="btn" onclick="submitCreatedTest()">✅ TESTNI SAQLASH</button>
-                </div>`;
-            addQuestion(); // Boshlanishiga bitta savol
-        }
-
-        function addQuestion() {
-            questionCount++;
-            const container = document.getElementById('questions_container');
-            const div = document.createElement('div');
-            div.className = 'q-row';
-            div.id = `q_block_${questionCount}`;
-            div.innerHTML = `
-                <div style="display:flex; justify-content:space-between;">
-                    <span>Savol №${questionCount}</span>
-                    <button class="btn btn-remove" onclick="removeQuestion(${questionCount})">O'chirish</button>
-                </div>
-                <select onchange="toggleInputType(${questionCount}, this.value)" id="type_${questionCount}">
-                    <option value="multi">Variantli (A,B,C,D)</option>
-                    <option value="open">Yopiq (Yozma)</option>
-                </select>
-                <div id="input_area_${questionCount}">
-                    <div class="radio-group">
-                        ${['A','B','C','D'].map(v => `<label><input type="radio" name="ans_${questionCount}" value="${v}">${v}</label>`).join('')}
-                    </div>
-                </div>`;
-            container.appendChild(div);
-        }
-
-        function toggleInputType(id, type) {
-            const area = document.getElementById(`input_area_${id}`);
-            if(type === 'open') {
-                area.innerHTML = `<input type="text" id="open_ans_${id}" placeholder="To'g'ri javobni yozing">`;
+        for(let i = 1; i <= 45; i++) {
+            if(i <= 35) {
+                const selected = document.querySelector(`input[name="${prefix}-q${i}"]:checked`);
+                data.answers[i] = selected ? selected.value : "";
             } else {
-                area.innerHTML = `<div class="radio-group">${['A','B','C','D'].map(v => `<label><input type="radio" name="ans_${id}" value="${v}">${v}</label>`).join('')}</div>`;
+                data.answers[i] = document.getElementById(`${prefix}-ans${i}`).value.trim();
             }
         }
 
-        function removeQuestion(id) {
-            document.getElementById(`q_block_${id}`).remove();
-        }
+        // Telegramga jo'natish
+        tg.sendData(JSON.stringify(data));
+        tg.close();
+    }
+</script>
 
-        function submitCreatedTest() {
-            let keys = {};
-            const rows = document.querySelectorAll('.q-row');
-            rows.forEach((row, index) => {
-                let qId = row.id.split('_')[2];
-                let type = document.getElementById(`type_${qId}`).value;
-                if(type === 'multi') {
-                    let sel = document.querySelector(`input[name="ans_${qId}"]:checked`);
-                    keys[index + 1] = sel ? sel.value : "";
-                } else {
-                    keys[index + 1] = document.getElementById(`open_ans_${qId}`).value.toUpperCase();
-                }
-            });
-
-            tg.sendData(JSON.stringify({
-                type: 'create',
-                test_code: document.getElementById('test_code').value,
-                subject: document.getElementById('subject').value,
-                keys: keys,
-                total: rows.length
-            }));
-        }
-
-        // --- TEST YECHISH QISMI (BOTDAN KELGAN KOD BO'YICHA) ---
-        // Bu qismda botdan kelgan savollar soniga qarab jadval chiqadi
-        function renderSolveForm(el) {
-            el.innerHTML = `
-                <div class="header"><h3>Javoblarni yuborish</h3></div>
-                <div class="card" id="code_area">
-                    <input type="number" id="user_test_code" placeholder="Test kodini kiriting">
-                    <button class="btn" onclick="startSolving()">DAVOM ETISH</button>
-                </div>
-                <div id="solve_area" style="display:none;">
-                    <div class="timer" id="timer">03:00:00</div>
-                    <div id="solve_list"></div>
-                    <button class="btn" onclick="submitResults()">YUBORISH</button>
-                </div>`;
-        }
-
-        function startSolving() {
-            // Test kodi orqali bazadan savollar sonini olish kerak. 
-            // Hozircha standart 45 talik jadval generatsiya bo'ladi.
-            document.getElementById('code_area').style.display = 'none';
-            document.getElementById('solve_area').style.display = 'block';
-            let list = document.getElementById('solve_list');
-            let html = "<table>";
-            for(let i=1; i<=45; i++) {
-                html += `<tr><td>${i}</td><td><input type="text" id="s_ans_${i}" class="yopiq-input" style="width:100%" placeholder="Javob"></td></tr>`;
-            }
-            html += "</table>";
-            list.innerHTML = html;
-        }
-    </script>
 </body>
 </html>
