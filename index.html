@@ -28,9 +28,9 @@
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
   .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
   
-  /* Fan va Kod uchun maxsus uslub */
-  .info-badge { background: #2d3842; color: var(--accent); padding: 5px 15px; border-radius: 8px; font-size: 14px; display: inline-block; border: 1px solid var(--accent); margin: 5px; min-width: 80px; }
-  .subject-title { font-size: 18px; color: #ffffff; font-weight: bold; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: 1px; }
+  /* Sarlavha dizayni */
+  .info-badge { background: #2d3842; color: var(--accent); padding: 5px 15px; border-radius: 8px; font-size: 14px; display: inline-block; border: 1px solid var(--accent); margin: 5px; }
+  .subject-title { font-size: 20px; color: #ffffff; font-weight: bold; margin-bottom: 5px; display: block; text-transform: uppercase; }
 </style>
 </head>
 <body>
@@ -42,12 +42,13 @@
     <div class="card">
       <span class="field-label">Test kodi</span>
       <input type="number" id="solve_test_code" placeholder="Kodni kiriting" />
-      <button class="btn" onclick="startSolvingManual()">OK</button>
+      <p id="error-msg" style="color: #ff4d4d; font-size: 13px; display: none;">Bunday kodli milliy sertifikat yo'q!</p>
+      <button class="btn" onclick="validateAndStart()">OK</button>
     </div>
   </div>
 
   <div id="test-area" class="hidden">
-    <div id="timer" class="timer hidden">03:00:00</div>
+    <div id="timer" class="timer">03:00:00</div>
     
     <div id="create-header" class="card hidden">
       <span class="field-label">Fanni tanlang</span>
@@ -65,7 +66,7 @@
     </div>
 
     <div id="solve-header" class="hidden" style="text-align: center; margin-bottom: 15px;">
-        <span class="subject-title" id="display_subject"></span>
+        <span class="subject-title" id="display_subject">FAN NOMI</span>
         <div class="info-badge" id="display_code_label">Kod: 0000</div>
     </div>
 
@@ -85,6 +86,8 @@ const mode = urlParams.get('mode') || 'create';
 const urlCode = urlParams.get('code');
 const urlSubject = urlParams.get('subject');
 
+// Simulatsiya qilingan mavjud testlar ro'yxati (Buni botingiz boshqarishi kerak)
+// Agar botdan URL parametrlari kelsa, bu ro'yxatga ehtiyoj qolmaydi
 window.onload = () => {
   if (mode === 'create') {
     document.getElementById('title').innerText = "Milliy sertifikat testi yaratish";
@@ -93,8 +96,8 @@ window.onload = () => {
     renderQuestions('c');
   } else {
     document.getElementById('title').innerText = "Javob yuborish";
+    // Agar bot orqali tayyor kod va fan kelsa:
     if (urlCode && urlSubject) {
-        // Botdan kelgan ma'lumotlarni o'rnatish
         document.getElementById('display_subject').innerText = decodeURIComponent(urlSubject);
         document.getElementById('display_code_label').innerText = "Kod: " + urlCode;
         document.getElementById('solve_test_code').value = urlCode;
@@ -102,23 +105,30 @@ window.onload = () => {
     } else {
         document.getElementById('solve-init').classList.remove('hidden');
     }
-    document.getElementById('submit_btn').innerText = "YUBORISH";
   }
 };
 
-function startSolvingManual() {
+async function validateAndStart() {
     const code = document.getElementById('solve_test_code').value;
+    const errorMsg = document.getElementById('error-msg');
+    
     if(!code) return alert("Kodni kiriting!");
-    document.getElementById('display_code_label').innerText = "Kod: " + code;
-    // Manual kirishda fan noma'lum bo'lsa, sarlavhani tozalaymiz yoki "Test" deb yozamiz
-    if(!urlSubject) document.getElementById('display_subject').innerText = "TEST";
-    startSolving();
+
+    // MUHIM: Bu yerda haqiqiy botingizga so'rov yuborish mantiqi bo'lishi kerak.
+    // Hozircha "1212" kodini namuna sifatida ishlatamiz.
+    if(code === "1212" || urlCode === code) {
+        errorMsg.style.display = 'none';
+        document.getElementById('display_code_label').innerText = "Kod: " + code;
+        document.getElementById('display_subject').innerText = urlSubject || "MATEMATIKA";
+        startSolving();
+    } else {
+        errorMsg.style.display = 'block';
+    }
 }
 
 function startSolving() {
   document.getElementById('solve-init').classList.add('hidden');
   document.getElementById('test-area').classList.remove('hidden');
-  document.getElementById('timer').classList.remove('hidden');
   document.getElementById('solve-header').classList.remove('hidden');
   renderQuestions('s');
   startTimer();
@@ -157,10 +167,7 @@ function startTimer() {
 
 function processData() {
   const testCode = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
-  const subject = mode === 'create' ? document.getElementById('subject_select').value : (urlSubject || "Yechish");
-
-  if (!testCode) return alert("Test kodini kiriting!");
-  if (mode === 'create' && !subject) return alert("Fanni tanlang!");
+  const subject = mode === 'create' ? document.getElementById('subject_select').value : document.getElementById('display_subject').innerText;
 
   const results = {};
   let emptyQuestions = [];
@@ -178,14 +185,14 @@ function processData() {
     }
 
     if (!val) {
-      emptyQuestions.push(i);
-      row.classList.add('unanswered');
+        emptyQuestions.push(i);
+        row.classList.add('unanswered');
     }
     results[i] = val;
   }
 
   if (emptyQuestions.length > 0) {
-    alert("Barcha savollarni belgilang! Belgilanmagan savollar qizil bilan ko'rsatildi.");
+    alert("Barcha savollarni belgilang!");
     return;
   }
 
