@@ -16,7 +16,6 @@
   select:focus, input:focus { border-color: var(--accent); outline: none; }
 
   .btn { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
-  .btn:disabled { background: #444; cursor: not-allowed; }
   
   table { width: 100%; border-collapse: collapse; margin-top: 15px; background: var(--card); }
   th, td { border: 1px solid var(--border); padding: 10px 5px; text-align: center; }
@@ -34,7 +33,7 @@
 
   .hidden { display: none; }
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
-  .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
+  
   .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
 </style>
 </head>
@@ -54,10 +53,6 @@
   <div id="test-area" class="hidden">
     <div id="timer" class="timer hidden">03:00:00</div>
     
-    <div id="info-bar" class="card" style="text-align: center; display: none;">
-        <span id="display_subject" class="subject-badge"></span>
-    </div>
-
     <div id="create-header" class="card hidden">
       <span class="field-label">Fanni tanlang</span>
       <select id="subject_select">
@@ -77,7 +72,6 @@
     <div id="questions_table"></div>
     
     <div style="margin: 20px 0;">
-      <div id="error_msg" style="color: #ff4d4d; text-align: center; margin-bottom: 10px; display: none;">Balans yetarli emas!</div>
       <button class="btn" id="submit_btn" onclick="processData()">SAQLASH</button>
     </div>
   </div>
@@ -88,22 +82,12 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 const mode = new URLSearchParams(window.location.search).get('mode') || 'create';
 
-// Botdan kelgan parametrlarni olish (Balans tekshirish uchun)
-const userBalance = parseInt(new URLSearchParams(window.location.search).get('balance')) || 0;
-const testCount = parseInt(new URLSearchParams(window.location.search).get('count')) || 0;
-
 window.onload = () => {
   if (mode === 'create') {
     document.getElementById('title').innerText = "Milliy sertifikat testi yaratish";
     document.getElementById('create-header').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
     renderQuestions('c');
-    
-    // Balans tekshiruvi (faqat vizual to'siq)
-    if (testCount >= 1 && userBalance < 2000) {
-        document.getElementById('submit_btn').disabled = true;
-        document.getElementById('error_msg').style.display = 'block';
-    }
   } else {
     document.getElementById('title').innerText = "Javob yuborish";
     document.getElementById('solve-init').classList.remove('hidden');
@@ -114,11 +98,6 @@ window.onload = () => {
 function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
-  
-  // Javob yuborishda fanni ko'rsatish (Bu yerda fan botdan keladi, hozircha loading ko'rsatamiz)
-  document.getElementById('display_subject').innerText = "Test kodi: " + code;
-  document.getElementById('info-bar').style.display = 'block';
-  
   document.getElementById('solve-init').classList.add('hidden');
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
@@ -130,6 +109,7 @@ function renderQuestions(prefix) {
   let html = `<table><tr><th>№</th><th>A</th><th>B</th><th>C</th><th>D</th>${prefix === 'c' ? '<th>E</th><th>F</th>' : ''}</tr>`;
   for (let i = 1; i <= 45; i++) {
     if (i <= 35) {
+      // 33-35 savollar E va F variantli bo'lishi mumkin
       const cols = i <= 32 ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E', 'F'];
       html += `<tr id="row_${i}"><td><b>${i}</b></td><td colspan="6"><div class="opt-grid">`;
       cols.forEach(opt => {
@@ -137,6 +117,7 @@ function renderQuestions(prefix) {
       });
       html += `</div></td></tr>`;
     } else {
+      // 36-45 savollar yopiq (yozma) javoblar
       html += `<tr id="row_${i}"><td><b>${i}</b></td><td colspan="6"><div class="yopiq-input-wrap"><input type="text" class="yopiq-field" id="ans${i}" placeholder="JAVOBNI KIRITING"></div></td></tr>`;
     }
   }
@@ -145,10 +126,16 @@ function renderQuestions(prefix) {
 
 function startTimer() {
   let time = 3 * 60 * 60;
-  setInterval(() => {
+  const timerElem = document.getElementById('timer');
+  const interval = setInterval(() => {
     let h = Math.floor(time / 3600), m = Math.floor((time % 3600) / 60), s = time % 60;
-    document.getElementById('timer').innerText = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
-    if (time > 0) time--;
+    timerElem.innerText = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+    if (time <= 0) {
+      clearInterval(interval);
+      alert("Vaqt tugadi!");
+      processData();
+    }
+    time--;
   }, 1000);
 }
 
@@ -186,15 +173,19 @@ function processData() {
     return;
   }
 
+  // Pullik xizmat haqida tasdiqlash (Faqat test yaratishda)
+  if (mode === 'create') {
+    const confirmMsg = "Diqqat! Agar bu sizning birinchi testingiz bo'lmasa, balansdan 5000 so'm yechiladi. Rozimisiz?";
+    if (!confirm(confirmMsg)) return;
+  }
+
+  // Ma'lumotni botga yuborish
   tg.sendData(JSON.stringify({
     type: mode,
     test_code: testCode,
-    code: testCode,
     subject: mode === 'create' ? subject : "",
-    keys: results,
-    answers: results
+    keys: results
   }));
-  tg.close();
 }
 </script>
 </body>
