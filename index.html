@@ -62,7 +62,7 @@
     </div>
 
     <div id="solve-header" class="hidden" style="text-align: center;">
-        <div class="subject-badge" id="display_subject">Fan nomi</div>
+        <div class="subject-badge" id="display_subject">Fan yuklanmoqda...</div>
     </div>
 
     <div id="questions_table"></div>
@@ -78,8 +78,8 @@ tg.expand();
 
 const urlParams = new URLSearchParams(window.location.search);
 const mode = urlParams.get('mode') || 'create';
-const urlCode = urlParams.get('code');
-const urlSubject = urlParams.get('subject');
+let urlCode = urlParams.get('code');
+let urlSubject = urlParams.get('subject');
 
 window.onload = () => {
   if (mode === 'create') {
@@ -89,7 +89,6 @@ window.onload = () => {
     renderQuestions('c');
   } else {
     document.getElementById('title').innerText = "Javob yuborish";
-    // Agar botdan kod va fan kelgan bo'lsa, to'g'ridan-to'g'ri testni ochish
     if (urlCode && urlSubject) {
         document.getElementById('display_subject').innerText = urlSubject;
         document.getElementById('solve_test_code').value = urlCode;
@@ -102,8 +101,13 @@ window.onload = () => {
 };
 
 function startSolvingManual() {
-    const code = document.getElementById('solve_test_code').value;
-    if(!code) return alert("Kodni kiriting!");
+    const codeInput = document.getElementById('solve_test_code').value;
+    if(!codeInput) return alert("Kodni kiriting!");
+    
+    // Agar bot fanni URLda bermagan bo'lsa, "Test: [kod]" deb ko'rsatadi
+    if(!urlSubject) {
+        document.getElementById('display_subject').innerText = "Kod: " + codeInput;
+    }
     startSolving();
 }
 
@@ -134,7 +138,7 @@ function renderQuestions(prefix) {
 }
 
 function startTimer() {
-  let time = 3 * 60 * 60;
+  let time = 3 * 60 * 60; // 3 soat
   const timerDiv = document.getElementById('timer');
   const timerInterval = setInterval(() => {
     let h = Math.floor(time / 3600), m = Math.floor((time % 3600) / 60), s = time % 60;
@@ -149,7 +153,7 @@ function startTimer() {
 
 function processData() {
   const testCode = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
-  const subject = mode === 'create' ? document.getElementById('subject_select').value : (urlSubject || "Yechish");
+  const subject = mode === 'create' ? document.getElementById('subject_select').value : (urlSubject || "Aniqlanmagan fan");
 
   if (!testCode) return alert("Test kodini kiriting!");
   if (mode === 'create' && !subject) return alert("Fanni tanlang!");
