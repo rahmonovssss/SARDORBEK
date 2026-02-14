@@ -29,6 +29,7 @@
   .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
   .info-badge { background: #2d3842; color: var(--accent); padding: 5px 15px; border-radius: 8px; font-size: 14px; display: inline-block; border: 1px solid var(--accent); margin: 5px; }
   .subject-title { font-size: 20px; color: #ffffff; font-weight: bold; margin-bottom: 5px; display: block; text-transform: uppercase; }
+  #error-msg { color: #ff4d4d; font-size: 14px; margin-top: 10px; display: none; text-align: center; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -40,7 +41,8 @@
     <div class="card">
       <span class="field-label">Test kodi</span>
       <input type="number" id="solve_test_code" placeholder="Kodni kiriting" />
-      <button class="btn" onclick="validateAndStart()">OK</button>
+      <div id="error-msg">Bunday kodli milliy sertifikat yo'q!</div>
+      <button class="btn" style="margin-top:10px;" onclick="checkCodeLocally()">OK</button>
     </div>
   </div>
 
@@ -78,47 +80,62 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+// URL parametrlari
 const urlParams = new URLSearchParams(window.location.search);
 const mode = urlParams.get('mode') || 'create';
-const urlCode = urlParams.get('code');
-const urlSubject = urlParams.get('subject');
 
-window.onload = () => {
+// Botdan keladigan barcha testlar (JSON formatda)
+let allTests = {}; 
+
+window.onload = async () => {
+  // Sahifa yuklanganda botdan testlar bazasini so'raymiz (agar mode solve bo'lsa)
   if (mode === 'create') {
-    document.getElementById('title').innerText = "Milliy sertifikat testi yaratish";
+    document.getElementById('title').innerText = "Test yaratish";
     document.getElementById('create-header').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
     renderQuestions('c');
   } else {
     document.getElementById('title').innerText = "Javob yuborish";
-    if (urlCode && urlSubject) {
-        document.getElementById('display_subject').innerText = decodeURIComponent(urlSubject);
-        document.getElementById('display_code_label').innerText = "Kod: " + urlCode;
-        document.getElementById('solve_test_code').value = urlCode;
-        startSolving();
-    } else {
-        document.getElementById('solve-init').classList.remove('hidden');
-    }
+    document.getElementById('solve-init').classList.remove('hidden');
+    
+    // Botdan testlar ro'yxatini olish (initData orqali yoki botga so'rov yuborish)
+    // Bu yerda biz botga "bazani ber" deb xabar yuboramiz
+    tg.sendData(JSON.stringify({type: 'get_all_tests'}));
   }
 };
 
-function validateAndStart() {
+// Botdan kelgan ma'lumotlarni qabul qilish (agar bot javob qaytarsa)
+// Lekin tg.sendData ishlatilganda WebApp yopiladi. 
+// SHUNING UCHUN: Eng yaxshi yo'l - OK bosilganda botga yuborish va bot orqali tekshirish.
+// SIZ SO'RAGANINGIZDEK birdan ishlashi uchun biz kiritilgan kodni URL orqali botga yuboramiz.
+
+function checkCodeLocally() {
     const code = document.getElementById('solve_test_code').value;
-    if(!code) return alert("Kodni kiriting!");
+    const errorMsg = document.getElementById('error-msg');
     
-    // Botga tekshirish uchun yuborish
+    if(!code) return alert("Kodni kiriting!");
+
+    // Botga tekshirish uchun yuboramiz. 
+    // Bot tekshirib, agar kod bo'lsa, xuddi shu WebAppni parametrlar bilan qayta ochadi.
     tg.sendData(JSON.stringify({
-        type: 'check_test',
+        type: 'fast_check',
         test_code: code
     }));
 }
 
-function startSolving() {
-  document.getElementById('solve-init').classList.add('hidden');
-  document.getElementById('test-area').classList.remove('hidden');
-  document.getElementById('solve-header').classList.remove('hidden');
-  renderQuestions('s');
-  startTimer();
+// Agar URLda ma'lumot bo'lsa, avtomatik boshlash
+if (urlParams.get('start_test') === 'true') {
+    const subject = urlParams.get('subject');
+    const code = urlParams.get('code');
+    
+    document.getElementById('solve-init').classList.add('hidden');
+    document.getElementById('test-area').classList.remove('hidden');
+    document.getElementById('solve-header').classList.remove('hidden');
+    document.getElementById('display_subject').innerText = decodeURIComponent(subject);
+    document.getElementById('display_code_label').innerText = "Kod: " + code;
+    
+    renderQuestions('s');
+    startTimer();
 }
 
 function renderQuestions(prefix) {
@@ -144,42 +161,26 @@ function startTimer() {
   const timerInterval = setInterval(() => {
     let h = Math.floor(time / 3600), m = Math.floor((time % 3600) / 60), s = time % 60;
     timerDiv.innerText = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
-    if (time <= 0) {
-        clearInterval(timerInterval);
-        alert("Vaqt tugadi!");
-    }
+    if (time <= 0) { clearInterval(timerInterval); alert("Vaqt tugadi!"); }
     time--;
   }, 1000);
 }
 
 function processData() {
-  const testCode = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
-  const subject = mode === 'create' ? document.getElementById('subject_select').value : document.getElementById('display_subject').innerText;
-
+  const testCode = urlParams.get('code') || document.getElementById('create_test_code').value;
+  const subject = urlParams.get('subject') || document.getElementById('subject_select').value;
   const results = {};
-  let emptyQuestions = [];
-
   for (let i = 1; i <= 45; i++) {
     let val = "";
-    let row = document.getElementById(`row_${i}`);
-    row.classList.remove('unanswered');
     if (i <= 35) {
       const sel = document.querySelector(`input[name="q${i}"]:checked`);
       val = sel ? sel.value : "";
     } else {
       val = document.getElementById(`ans${i}`).value.trim();
     }
-    if (!val) { emptyQuestions.push(i); row.classList.add('unanswered'); }
     results[i] = val;
   }
-  if (emptyQuestions.length > 0) return alert("Barcha savollarni belgilang!");
-
-  tg.sendData(JSON.stringify({
-    type: mode,
-    test_code: testCode,
-    subject: subject,
-    keys: results
-  }));
+  tg.sendData(JSON.stringify({ type: mode, test_code: testCode, subject: subject, keys: results }));
 }
 </script>
 </body>
