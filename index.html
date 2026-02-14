@@ -10,25 +10,32 @@
   body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
   .header { text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
   .card { background: var(--card); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; }
+  
   .field-label { font-size: 14px; color: #aeb9c2; margin-bottom: 5px; display: block; text-align: left; }
   select, input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid var(--border); background: #0d1217; color: white; font-size: 16px; box-sizing: border-box; }
   select:focus, input:focus { border-color: var(--accent); outline: none; }
+
   .btn { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
+  
   table { width: 100%; border-collapse: collapse; margin-top: 15px; background: var(--card); }
   th, td { border: 1px solid var(--border); padding: 10px 5px; text-align: center; }
   th { background: #252e37; font-size: 14px; }
+  
   .opt-grid { display: flex; justify-content: center; gap: 8px; }
   .opt-item { position: relative; width: 24px; height: 24px; }
   .opt-item input { position: absolute; opacity: 0; cursor: pointer; width: 100%; height: 100%; margin: 0; z-index: 2; }
   .checkmark { position: absolute; top: 0; left: 0; height: 22px; width: 22px; background: transparent; border: 2px solid #55606a; border-radius: 50%; z-index: 1; }
   .opt-item input:checked ~ .checkmark { background: var(--accent); border-color: var(--accent); }
   .opt-item input:checked ~ .checkmark::after { content: ""; position: absolute; width: 8px; height: 8px; background: white; border-radius: 50%; top: 7px; left: 7px; }
+
   .yopiq-input-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px; }
   .yopiq-field { background: #252e37; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 5px; width: 90%; text-align: center; }
+
   .hidden { display: none; }
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
+  
+  /* Belgilanmagan savol uchun qizil hoshiya */
   .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
-  .subject-badge { background: #2d3842; color: var(--accent); padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-bottom: 10px; display: inline-block; }
 </style>
 </head>
 <body>
@@ -40,7 +47,7 @@
     <div class="card">
       <span class="field-label">Test kodi</span>
       <input type="number" id="solve_test_code" placeholder="Kodni kiriting" />
-      <button class="btn" onclick="checkTestCode()">OK</button>
+      <button class="btn" onclick="startSolving()">OK</button>
     </div>
   </div>
 
@@ -58,15 +65,13 @@
         <option value="Biologiya">Biologiya</option>
         <option value="Tarix">Tarix</option>
       </select>
+      
       <span class="field-label" style="margin-top:10px;">Test kodi</span>
       <input type="number" id="create_test_code" placeholder="Kodni kiriting">
     </div>
 
-    <div id="solve-header" class="hidden" style="text-align: center;">
-        <div class="subject-badge" id="display_subject">Fan nomi</div>
-    </div>
-
     <div id="questions_table"></div>
+    
     <div style="margin: 20px 0;">
       <button class="btn" id="submit_btn" onclick="processData()">SAQLASH</button>
     </div>
@@ -91,27 +96,12 @@ window.onload = () => {
   }
 };
 
-// Kod kiritilganda botdan ma'lumot so'rash (simulyatsiya yoki check)
-function checkTestCode() {
-    const code = document.getElementById('solve_test_code').value;
-    if(!code) return alert("Kodni kiriting!");
-    
-    // Botga kodni tekshirish uchun xabar yuboramiz
-    tg.sendData(JSON.stringify({
-        type: 'check_code',
-        test_code: code
-    }));
-    
-    // Eslatma: WebApp yopiladi. Bot fanni topib qayta javob qaytarishi kerak. 
-    // Lekin siz boshqa joyga tegma deganingiz uchun, mantiqni startSolving ichiga yozamiz.
-    startSolving();
-}
-
 function startSolving() {
+  const code = document.getElementById('solve_test_code').value;
+  if(!code) return alert("Kodni kiriting!");
   document.getElementById('solve-init').classList.add('hidden');
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
-  document.getElementById('solve-header').classList.remove('hidden');
   renderQuestions('s');
   startTimer();
 }
@@ -155,7 +145,7 @@ function processData() {
   for (let i = 1; i <= 45; i++) {
     let val = "";
     let row = document.getElementById(`row_${i}`);
-    row.classList.remove('unanswered');
+    row.classList.remove('unanswered'); // Oldingi belgilarni tozalash
 
     if (i <= 35) {
       const sel = document.querySelector(`input[name="q${i}"]:checked`);
@@ -166,7 +156,7 @@ function processData() {
 
     if (!val) {
       emptyQuestions.push(i);
-      row.classList.add('unanswered');
+      row.classList.add('unanswered'); // Belgilanmagan qatorni qizil qilish
     }
     results[i] = val;
   }
