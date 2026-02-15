@@ -26,11 +26,14 @@
   .hidden { display: none; }
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
   .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
+  .unanswered { border: 2px solid #ff4d4d !important; }
 </style>
 </head>
 <body>
+
 <div id="main-container">
   <div class="header" id="title">Milliy Sertifikat Bot</div>
+
   <div id="solve-init" class="hidden">
     <div class="card">
       <span class="field-label">Test kodi</span>
@@ -38,11 +41,13 @@
       <button class="btn" onclick="startSolving()">OK</button>
     </div>
   </div>
+
   <div id="test-area" class="hidden">
     <div id="timer" class="timer hidden">03:00:00</div>
     <div id="info-bar" class="card" style="text-align: center; display: none;">
         <span id="display_subject" class="subject-badge"></span>
     </div>
+
     <div id="create-header" class="card hidden">
       <span class="field-label">Fanni tanlang</span>
       <select id="subject_select">
@@ -56,19 +61,25 @@
       </select>
       <input type="number" id="create_test_code" placeholder="Test kodi">
     </div>
+
     <div id="questions_table"></div>
-    <button class="btn" style="margin-top:20px" id="submit_btn" onclick="processData()">SAQLASH</button>
+    <button class="btn" style="margin: 20px 0;" id="submit_btn" onclick="processData()">SAQLASH</button>
   </div>
 </div>
+
 <script>
 const tg = window.Telegram.WebApp;
+tg.expand();
+
 const urlParams = new URLSearchParams(window.location.search);
 const mode = urlParams.get('mode') || 'create';
 let testMap = {};
+
+// Botdan kelgan test ma'lumotlarini (fan nomlarini) decode qilish
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
-} catch(e) {}
+} catch(e) { console.error("Data error", e); }
 
 window.onload = () => {
   if (mode === 'create') {
@@ -84,7 +95,7 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // FANNI TEKSHIRISH
+  // Python kodidagi test_map orqali fan nomini tekshirish
   const subject = testMap[code.toString()];
   if (!subject) {
       alert("⚠️ Xato: Bunday kodli test topilmadi!");
@@ -101,17 +112,17 @@ function startSolving() {
 }
 
 function renderQuestions(prefix) {
-  let html = `<table><tr><th>№</th><th>A</th><th>B</th><th>C</th><th>D</th></tr>`;
+  let html = `<table><tr><th>№</th><th>Variantlar</th></tr>`;
   for (let i = 1; i <= 45; i++) {
     if (i <= 35) {
       const opts = (i>=33) ? ['A','B','C','D','E','F'] : ['A','B','C','D'];
-      html += `<tr><td>${i}</td><td colspan="4"><div class="opt-grid">`;
+      html += `<tr id="row_${i}"><td>${i}</td><td><div class="opt-grid">`;
       opts.forEach(o => {
         html += `<div class="opt-item"><input type="radio" name="q${i}" value="${o}"><span class="checkmark"></span><span style="display:block;margin-top:20px;font-size:10px">${o}</span></div>`;
       });
       html += `</div></td></tr>`;
     } else {
-      html += `<tr><td>${i}</td><td colspan="4"><input type="text" class="yopiq-field" id="ans${i}" placeholder="Javob"></td></tr>`;
+      html += `<tr id="row_${i}"><td>${i}</td><td><input type="text" class="yopiq-field" id="ans${i}" placeholder="Javob"></td></tr>`;
     }
   }
   document.getElementById('questions_table').innerHTML = html + `</table>`;
@@ -119,24 +130,53 @@ function renderQuestions(prefix) {
 
 function startTimer() {
   let time = 10800;
-  setInterval(() => {
+  const timerEl = document.getElementById('timer');
+  const interval = setInterval(() => {
     let h=Math.floor(time/3600), m=Math.floor((time%3600)/60), s=time%60;
-    document.getElementById('timer').innerText = `${h}:${m}:${s}`;
-    if(time>0) time--;
+    timerEl.innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    if(time <= 0) {
+        clearInterval(interval);
+        processData(); // Vaqt tugasa avtomat yuborish
+    }
+    time--;
   }, 1000);
 }
 
 function processData() {
+  const code = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
+  const subject = mode === 'create' ? document.getElementById('subject_select').value : "";
+
+  if(!code) return alert("Kodni kiriting!");
+  
   const results = {};
+  let incomplete = false;
+
   for(let i=1; i<=45; i++) {
-    results[i] = i<=35 ? (document.querySelector(`input[name="q${i}"]:checked`)?.value || "") : document.getElementById(`ans${i}`).value;
+    let val = "";
+    if(i<=35) {
+      val = document.querySelector(`input[name="q${i}"]:checked`)?.value || "";
+    } else {
+      val = document.getElementById(`ans${i}`).value.trim();
+    }
+    
+    if(!val) {
+        document.getElementById(`row_${i}`).classList.add('unanswered');
+        incomplete = true;
+    } else {
+        document.getElementById(`row_${i}`).classList.remove('unanswered');
+    }
+    results[i] = val;
   }
+
+  if(incomplete) return alert("Barcha savollarga javob bering!");
+
   tg.sendData(JSON.stringify({
     type: mode,
-    test_code: mode==='create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value,
-    subject: mode==='create' ? document.getElementById('subject_select').value : "",
+    test_code: code,
+    subject: subject,
     keys: results
   }));
+  tg.close();
 }
 </script>
 </body>
