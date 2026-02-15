@@ -25,11 +25,10 @@
   .yopiq-field { background: #252e37; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 5px; width: 90%; text-align: center; }
   .hidden { display: none; }
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
-  .subject-badge { background: #2a9d8f; color: white; padding: 8px 15px; border-radius: 5px; font-size: 16px; display: inline-block; font-weight: bold; }
+  .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
 </style>
 </head>
 <body>
-
 <div id="main-container">
   <div class="header" id="title">Milliy Sertifikat Bot</div>
   <div id="solve-init" class="hidden">
@@ -58,16 +57,14 @@
       <input type="number" id="create_test_code" placeholder="Test kodi">
     </div>
     <div id="questions_table"></div>
-    <button class="btn" style="margin: 20px 0" id="submit_btn" onclick="processData()">SAQLASH</button>
+    <button class="btn" style="margin-top:20px" id="submit_btn" onclick="processData()">SAQLASH</button>
   </div>
 </div>
-
 <script>
 const tg = window.Telegram.WebApp;
 const urlParams = new URLSearchParams(window.location.search);
 const mode = urlParams.get('mode') || 'create';
 let testMap = {};
-
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
@@ -87,14 +84,13 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // FAN NOMINI BAZADAN TOPISH
+  // FANNI TEKSHIRISH
   const subject = testMap[code.toString()];
-  
   if (!subject) {
-      alert("Xato: Bunday kodli fan topilmadi!");
+      alert("⚠️ Xato: Bunday kodli test topilmadi!");
       return;
   }
-
+  
   document.getElementById('display_subject').innerText = "Fan: " + subject;
   document.getElementById('info-bar').style.display = 'block';
   document.getElementById('solve-init').classList.add('hidden');
@@ -105,17 +101,17 @@ function startSolving() {
 }
 
 function renderQuestions(prefix) {
-  let html = `<table><tr><th>№</th><th>Javoblar</th></tr>`;
+  let html = `<table><tr><th>№</th><th>A</th><th>B</th><th>C</th><th>D</th></tr>`;
   for (let i = 1; i <= 45; i++) {
     if (i <= 35) {
       const opts = (i>=33) ? ['A','B','C','D','E','F'] : ['A','B','C','D'];
-      html += `<tr><td>${i}</td><td><div class="opt-grid">`;
+      html += `<tr><td>${i}</td><td colspan="4"><div class="opt-grid">`;
       opts.forEach(o => {
         html += `<div class="opt-item"><input type="radio" name="q${i}" value="${o}"><span class="checkmark"></span><span style="display:block;margin-top:20px;font-size:10px">${o}</span></div>`;
       });
       html += `</div></td></tr>`;
     } else {
-      html += `<tr><td>${i}</td><td><input type="text" class="yopiq-field" id="ans${i}" placeholder="Javob"></td></tr>`;
+      html += `<tr><td>${i}</td><td colspan="4"><input type="text" class="yopiq-field" id="ans${i}" placeholder="Javob"></td></tr>`;
     }
   }
   document.getElementById('questions_table').innerHTML = html + `</table>`;
@@ -125,7 +121,7 @@ function startTimer() {
   let time = 10800;
   setInterval(() => {
     let h=Math.floor(time/3600), m=Math.floor((time%3600)/60), s=time%60;
-    document.getElementById('timer').innerText = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+    document.getElementById('timer').innerText = `${h}:${m}:${s}`;
     if(time>0) time--;
   }, 1000);
 }
@@ -141,7 +137,6 @@ function processData() {
     subject: mode==='create' ? document.getElementById('subject_select').value : "",
     keys: results
   }));
-  tg.close();
 }
 </script>
 </body>
