@@ -10,39 +10,29 @@
   body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
   .header { text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
   .card { background: var(--card); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; }
-  
   .field-label { font-size: 14px; color: #aeb9c2; margin-bottom: 5px; display: block; text-align: left; }
   select, input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid var(--border); background: #0d1217; color: white; font-size: 16px; box-sizing: border-box; }
-  select:focus, input:focus { border-color: var(--accent); outline: none; }
-
   .btn { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
-  .btn:disabled { background: #444; cursor: not-allowed; }
-  
   table { width: 100%; border-collapse: collapse; margin-top: 15px; background: var(--card); }
   th, td { border: 1px solid var(--border); padding: 10px 5px; text-align: center; }
   th { background: #252e37; font-size: 14px; }
-  
   .opt-grid { display: flex; justify-content: center; gap: 8px; }
   .opt-item { position: relative; width: 24px; height: 24px; }
   .opt-item input { position: absolute; opacity: 0; cursor: pointer; width: 100%; height: 100%; margin: 0; z-index: 2; }
   .checkmark { position: absolute; top: 0; left: 0; height: 22px; width: 22px; background: transparent; border: 2px solid #55606a; border-radius: 50%; z-index: 1; }
   .opt-item input:checked ~ .checkmark { background: var(--accent); border-color: var(--accent); }
   .opt-item input:checked ~ .checkmark::after { content: ""; position: absolute; width: 8px; height: 8px; background: white; border-radius: 50%; top: 7px; left: 7px; }
-
   .yopiq-input-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px; }
   .yopiq-field { background: #252e37; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 5px; width: 90%; text-align: center; }
-
   .hidden { display: none; }
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
   .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
-  .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
 </style>
 </head>
 <body>
 
 <div id="main-container">
   <div class="header" id="title">Milliy Sertifikat Bot</div>
-
   <div id="solve-init" class="hidden">
     <div class="card">
       <span class="field-label">Test kodi</span>
@@ -50,14 +40,11 @@
       <button class="btn" onclick="startSolving()">OK</button>
     </div>
   </div>
-
   <div id="test-area" class="hidden">
     <div id="timer" class="timer hidden">03:00:00</div>
-    
     <div id="info-bar" class="card" style="text-align: center; display: none;">
         <span id="display_subject" class="subject-badge"></span>
     </div>
-
     <div id="create-header" class="card hidden">
       <span class="field-label">Fanni tanlang</span>
       <select id="subject_select">
@@ -69,45 +56,31 @@
         <option value="Biologiya">Biologiya</option>
         <option value="Tarix">Tarix</option>
       </select>
-      
-      <span class="field-label" style="margin-top:10px;">Test kodi</span>
-      <input type="number" id="create_test_code" placeholder="Kodni kiriting">
+      <input type="number" id="create_test_code" placeholder="Test kodi">
     </div>
-
     <div id="questions_table"></div>
-    
-    <div style="margin: 20px 0;">
-      <div id="error_msg" style="color: #ff4d4d; text-align: center; margin-bottom: 10px; display: none;">Balans yetarli emas!</div>
-      <button class="btn" id="submit_btn" onclick="processData()">SAQLASH</button>
-    </div>
+    <button class="btn" style="margin-top:20px" id="submit_btn" onclick="processData()">SAQLASH</button>
   </div>
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
-tg.expand();
-const mode = new URLSearchParams(window.location.search).get('mode') || 'create';
+const urlParams = new URLSearchParams(window.location.search);
+const mode = urlParams.get('mode') || 'create';
+let testMap = {};
 
-// Botdan kelgan parametrlarni olish (Balans tekshirish uchun)
-const userBalance = parseInt(new URLSearchParams(window.location.search).get('balance')) || 0;
-const testCount = parseInt(new URLSearchParams(window.location.search).get('count')) || 0;
+try {
+  const rawData = urlParams.get('test_data');
+  if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
+} catch(e) {}
 
 window.onload = () => {
   if (mode === 'create') {
-    document.getElementById('title').innerText = "Milliy sertifikat testi yaratish";
     document.getElementById('create-header').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
     renderQuestions('c');
-    
-    // Balans tekshiruvi (faqat vizual to'siq)
-    if (testCount >= 1 && userBalance < 2000) {
-        document.getElementById('submit_btn').disabled = true;
-        document.getElementById('error_msg').style.display = 'block';
-    }
   } else {
-    document.getElementById('title').innerText = "Javob yuborish";
     document.getElementById('solve-init').classList.remove('hidden');
-    document.getElementById('submit_btn').innerText = "YUBORISH";
   }
 };
 
@@ -115,8 +88,9 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Javob yuborishda fanni ko'rsatish (Bu yerda fan botdan keladi, hozircha loading ko'rsatamiz)
-  document.getElementById('display_subject').innerText = "Test kodi: " + code;
+  // FAN NOMINI AVTOMATIK ANIQLASH
+  const subject = testMap[code] || "Noma'lum fan";
+  document.getElementById('display_subject').innerText = "Fan: " + subject + " (Kod: " + code + ")";
   document.getElementById('info-bar').style.display = 'block';
   
   document.getElementById('solve-init').classList.add('hidden');
@@ -127,74 +101,42 @@ function startSolving() {
 }
 
 function renderQuestions(prefix) {
-  let html = `<table><tr><th>№</th><th>A</th><th>B</th><th>C</th><th>D</th>${prefix === 'c' ? '<th>E</th><th>F</th>' : ''}</tr>`;
+  let html = `<table><tr><th>№</th><th>A</th><th>B</th><th>C</th><th>D</th></tr>`;
   for (let i = 1; i <= 45; i++) {
     if (i <= 35) {
-      const cols = i <= 32 ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E', 'F'];
-      html += `<tr id="row_${i}"><td><b>${i}</b></td><td colspan="6"><div class="opt-grid">`;
-      cols.forEach(opt => {
-        html += `<div class="opt-item"><input type="radio" name="q${i}" value="${opt}"><span class="checkmark"></span><span style="display:block; margin-top:25px; font-size:10px;">${opt}</span></div>`;
+      const opts = (i>=33) ? ['A','B','C','D','E','F'] : ['A','B','C','D'];
+      html += `<tr><td>${i}</td><td colspan="4"><div class="opt-grid">`;
+      opts.forEach(o => {
+        html += `<div class="opt-item"><input type="radio" name="q${i}" value="${o}"><span class="checkmark"></span><span style="display:block;margin-top:20px;font-size:10px">${o}</span></div>`;
       });
       html += `</div></td></tr>`;
     } else {
-      html += `<tr id="row_${i}"><td><b>${i}</b></td><td colspan="6"><div class="yopiq-input-wrap"><input type="text" class="yopiq-field" id="ans${i}" placeholder="JAVOBNI KIRITING"></div></td></tr>`;
+      html += `<tr><td>${i}</td><td colspan="4"><input type="text" class="yopiq-field" id="ans${i}" placeholder="Javob"></td></tr>`;
     }
   }
   document.getElementById('questions_table').innerHTML = html + `</table>`;
 }
 
 function startTimer() {
-  let time = 3 * 60 * 60;
+  let time = 10800;
   setInterval(() => {
-    let h = Math.floor(time / 3600), m = Math.floor((time % 3600) / 60), s = time % 60;
-    document.getElementById('timer').innerText = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
-    if (time > 0) time--;
+    let h=Math.floor(time/3600), m=Math.floor((time%3600)/60), s=time%60;
+    document.getElementById('timer').innerText = `${h}:${m}:${s}`;
+    if(time>0) time--;
   }, 1000);
 }
 
 function processData() {
-  const testCode = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
-  const subject = mode === 'create' ? document.getElementById('subject_select').value : "ok";
-
-  if (!testCode) return alert("Test kodini kiriting!");
-  if (mode === 'create' && !subject) return alert("Fanni tanlang!");
-
   const results = {};
-  let emptyQuestions = [];
-
-  for (let i = 1; i <= 45; i++) {
-    let val = "";
-    let row = document.getElementById(`row_${i}`);
-    row.classList.remove('unanswered');
-
-    if (i <= 35) {
-      const sel = document.querySelector(`input[name="q${i}"]:checked`);
-      val = sel ? sel.value : "";
-    } else {
-      val = document.getElementById(`ans${i}`).value.trim();
-    }
-
-    if (!val) {
-      emptyQuestions.push(i);
-      row.classList.add('unanswered');
-    }
-    results[i] = val;
+  for(let i=1; i<=45; i++) {
+    results[i] = i<=35 ? (document.querySelector(`input[name="q${i}"]:checked`)?.value || "") : document.getElementById(`ans${i}`).value;
   }
-
-  if (emptyQuestions.length > 0) {
-    alert("Barcha savollarni belgilang! Belgilanmagan savollar qizil bilan ko'rsatildi.");
-    return;
-  }
-
   tg.sendData(JSON.stringify({
     type: mode,
-    test_code: testCode,
-    code: testCode,
-    subject: mode === 'create' ? subject : "",
-    keys: results,
-    answers: results
+    test_code: mode==='create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value,
+    subject: mode==='create' ? document.getElementById('subject_select').value : "",
+    keys: results
   }));
-  tg.close();
 }
 </script>
 </body>
