@@ -87,7 +87,7 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // AVTOMATIK FAN NOMINI TEKSHIRISH
+  // FAN NOMINI BAZADAN TOPISH
   const subject = testMap[code.toString()];
   
   if (!subject) {
@@ -133,9 +133,7 @@ function startTimer() {
 function processData() {
   const results = {};
   for(let i=1; i<=45; i++) {
-    let v = i<=35 ? (document.querySelector(`input[name="q${i}"]:checked`)?.value || "") : document.getElementById(`ans${i}`).value.trim();
-    if(!v) return alert("Barcha savollarni to'ldiring!");
-    results[i] = v;
+    results[i] = i<=35 ? (document.querySelector(`input[name="q${i}"]:checked`)?.value || "") : document.getElementById(`ans${i}`).value;
   }
   tg.sendData(JSON.stringify({
     type: mode,
