@@ -95,25 +95,22 @@ let currentTotalQ = 45;
 let rowAnsCounts = {};
 let savedAnswers = {};
 
+// MUHIM: URL dan ma'lumotlarni eng birinchi yuklaymiz
+const confRaw = urlParams.get('configs');
+const totalRaw = urlParams.get('total');
+if (totalRaw) currentTotalQ = parseInt(totalRaw);
+if (confRaw) {
+    try { rowAnsCounts = JSON.parse(decodeURIComponent(confRaw)); } catch(e) {}
+} else {
+    for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
+}
+
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
 } catch(e) { console.error("Xato"); }
 
 window.onload = () => {
-  // Boshlang'ich konfiguratsiyani URL-dan yuklash
-  const confRaw = urlParams.get('configs');
-  const totalRaw = urlParams.get('total');
-  
-  if(totalRaw) currentTotalQ = parseInt(totalRaw);
-  if(confRaw) {
-      try {
-          rowAnsCounts = JSON.parse(decodeURIComponent(confRaw));
-      } catch(e) { console.error("Config xatosi"); }
-  } else {
-      for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
-  }
-
   if (mode === 'create') {
     document.getElementById('title').innerText = "Test yaratish";
     document.getElementById('create-header').classList.remove('hidden');
@@ -128,19 +125,18 @@ window.onload = () => {
   } else {
     document.getElementById('title').innerText = "Javob yuborish";
     document.getElementById('solve-init').classList.remove('hidden');
-    // Jadvalni oldindan tayyorlab qo'yamiz
+    // Jadvalni oldindan orqa fonda tayyorlab qo'yamiz
     renderQuestions();
   }
 };
 
 function saveInputs() {
-    for (let i = 1; i <= currentTotalQ; i++) {
+    for (let i = 1; i <= 45; i++) {
         if (i <= 35) {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
         } else {
-            let count = rowAnsCounts[i] || 1;
-            for (let j = 0; j < count; j++) {
+            for (let j = 0; j < 5; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el) savedAnswers[`ans${i}_${j}`] = el.value;
             }
@@ -199,7 +195,8 @@ function startSolving() {
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
-  // Jadvalni qayta render qilish (configlar to'g'riligiga ishonch hosil qilish uchun)
+  
+  // URL parametrlari asosida yana bir bor render qilish (aniqlik uchun)
   renderQuestions();
   startTimer();
 }
@@ -238,15 +235,10 @@ function renderQuestions() {
 
 function startTimer() {
   let time = 3 * 60 * 60;
-  let interval = setInterval(() => {
+  setInterval(() => {
     let h = Math.floor(time / 3600), m = Math.floor((time % 3600) / 60), s = time % 60;
     document.getElementById('timer').innerText = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
-    if (time <= 0) {
-        clearInterval(interval);
-        alert("Vaqt tugadi!");
-    } else {
-        time--;
-    }
+    if (time > 0) time--;
   }, 1000);
 }
 
