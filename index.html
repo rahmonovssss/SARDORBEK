@@ -95,19 +95,28 @@ let currentTotalQ = 45;
 let rowAnsCounts = {};
 let savedAnswers = {};
 
+// 1. URL dan ma'lumotlarni o'qish (Hamma funksiyalar ishlashi uchun onload dan oldin)
+const confRaw = urlParams.get('configs');
+const totalRaw = urlParams.get('total');
+if(totalRaw) currentTotalQ = parseInt(totalRaw);
+if(confRaw) {
+    try { rowAnsCounts = JSON.parse(decodeURIComponent(confRaw)); } catch(e) {}
+} else {
+    for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
+}
+
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
 } catch(e) { console.error("Xato"); }
 
 window.onload = () => {
-  for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
-
   if (mode === 'create') {
     document.getElementById('title').innerText = "Test yaratish";
     document.getElementById('create-header').classList.remove('hidden');
     document.getElementById('q_total_control').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
+    document.getElementById('total_q_lbl').innerText = currentTotalQ + " ta savol";
     renderQuestions();
     if (testCount >= 1 && userBalance < 2000) {
         document.getElementById('submit_btn').disabled = true;
@@ -125,6 +134,7 @@ function saveInputs() {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
         } else {
+            let count = rowAnsCounts[i] || 1;
             for (let j = 0; j < 5; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el) savedAnswers[`ans${i}_${j}`] = el.value;
@@ -141,7 +151,8 @@ function restoreInputs() {
                 if (rb) rb.checked = true;
             }
         } else {
-            for (let j = 0; j < (rowAnsCounts[i] || 1); j++) {
+            let count = rowAnsCounts[i] || 1;
+            for (let j = 0; j < count; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el && savedAnswers[`ans${i}_${j}`]) el.value = savedAnswers[`ans${i}_${j}`];
             }
@@ -174,15 +185,6 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Botdan kelgan sozlamalarni OK bosilganda yuklash
-  const confRaw = urlParams.get('configs');
-  const totalRaw = urlParams.get('total');
-  
-  if(totalRaw) currentTotalQ = parseInt(totalRaw);
-  if(confRaw) {
-      try { rowAnsCounts = JSON.parse(decodeURIComponent(confRaw)); } catch(e) {}
-  }
-
   const subject = testMap[code.toString()];
   if (!subject) { alert("⚠️ Xato: Bunday kodli test topilmadi!"); return; }
 
