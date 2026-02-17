@@ -93,17 +93,7 @@ const testCount = parseInt(urlParams.get('count')) || 0;
 let testMap = {};
 let currentTotalQ = 45;
 let rowAnsCounts = {};
-let savedAnswers = {};
-
-// MUHIM: URL dan ma'lumotlarni eng birinchi yuklaymiz
-const confRaw = urlParams.get('configs');
-const totalRaw = urlParams.get('total');
-if (totalRaw) currentTotalQ = parseInt(totalRaw);
-if (confRaw) {
-    try { rowAnsCounts = JSON.parse(decodeURIComponent(confRaw)); } catch(e) {}
-} else {
-    for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
-}
+let savedAnswers = {}; // Ma'lumotlarni vaqtincha saqlash
 
 try {
   const rawData = urlParams.get('test_data');
@@ -111,12 +101,13 @@ try {
 } catch(e) { console.error("Xato"); }
 
 window.onload = () => {
+  for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
+
   if (mode === 'create') {
     document.getElementById('title').innerText = "Test yaratish";
     document.getElementById('create-header').classList.remove('hidden');
     document.getElementById('q_total_control').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
-    document.getElementById('total_q_lbl').innerText = currentTotalQ + " ta savol";
     renderQuestions();
     if (testCount >= 1 && userBalance < 2000) {
         document.getElementById('submit_btn').disabled = true;
@@ -125,18 +116,16 @@ window.onload = () => {
   } else {
     document.getElementById('title').innerText = "Javob yuborish";
     document.getElementById('solve-init').classList.remove('hidden');
-    // Jadvalni oldindan orqa fonda tayyorlab qo'yamiz
-    renderQuestions();
   }
 };
 
 function saveInputs() {
-    for (let i = 1; i <= 45; i++) {
+    for (let i = 1; i <= currentTotalQ; i++) {
         if (i <= 35) {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
         } else {
-            for (let j = 0; j < 5; j++) {
+            for (let j = 0; j < (rowAnsCounts[i] || 1); j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el) savedAnswers[`ans${i}_${j}`] = el.value;
             }
@@ -152,8 +141,7 @@ function restoreInputs() {
                 if (rb) rb.checked = true;
             }
         } else {
-            let count = rowAnsCounts[i] || 1;
-            for (let j = 0; j < count; j++) {
+            for (let j = 0; j < (rowAnsCounts[i] || 1); j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el && savedAnswers[`ans${i}_${j}`]) el.value = savedAnswers[`ans${i}_${j}`];
             }
@@ -186,6 +174,15 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
+  // Botdan kelgan ma'lumotlarni olish (Bot config yuborishi kerak)
+  // Bu yerda URL orqali kelgan configs'ni tekshiramiz
+  const confRaw = urlParams.get('configs');
+  if(confRaw) {
+      const conf = JSON.parse(decodeURIComponent(confRaw));
+      currentTotalQ = parseInt(urlParams.get('total')) || 45;
+      rowAnsCounts = conf;
+  }
+
   const subject = testMap[code.toString()];
   if (!subject) { alert("⚠️ Xato: Bunday kodli test topilmadi!"); return; }
 
@@ -195,8 +192,6 @@ function startSolving() {
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
-  
-  // URL parametrlari asosida yana bir bor render qilish (aniqlik uchun)
   renderQuestions();
   startTimer();
 }
@@ -280,7 +275,7 @@ function processData() {
     subject: mode === 'create' ? subject : "",
     keys: results,
     total: currentTotalQ,
-    configs: rowAnsCounts
+    configs: rowAnsCounts // Botga yuboriladi
   }));
   tg.close();
 }
