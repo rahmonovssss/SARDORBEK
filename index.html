@@ -28,8 +28,8 @@
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
   .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
   .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
-  .adjust-buttons { display: flex; justify-content: center; margin-top: 10px; }
-  .adjust-btn { background: var(--accent); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+  .counter { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .counter button { background: var(--accent); border: none; color: white; padding: 5px; border-radius: 5px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -80,10 +80,9 @@ const userBalance = parseInt(urlParams.get('balance')) || 0;
 const testCount = parseInt(urlParams.get('count')) || 0;
 
 let testMap = {};
-let questionCount = 45; // Maximum number of questions
-let answerCount = 0; // Number of answers given
+let questionCount = 45;
+let answerCount = 0;
 
-// Botdan kelgan fan nomlarini decode qilish
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
@@ -140,32 +139,35 @@ function renderQuestions(prefix) {
     }
   }
   document.getElementById('questions_table').innerHTML = html + `</table>`;
-  updateAnswerDisplay();
+  updateCounters();
 }
 
-function updateAnswerDisplay() {
-  const answerDisplay = document.getElementById('answer_display');
-  if (!answerDisplay) {
-    const newDisplay = document.createElement('div');
-    newDisplay.id = 'answer_display';
-    newDisplay.innerHTML = `<div class="adjust-buttons">
-      <button class="adjust-btn" onclick="adjustAnswers(1)">+</button>
-      <span id="answer_count">${answerCount} Javob bering</span>
-      <button class="adjust-btn" onclick="adjustAnswers(-1)">-</button>
-    </div>`;
-    document.getElementById('test-area').appendChild(newDisplay);
-  } else {
-    document.getElementById('answer_count').innerText = `${answerCount} Javob bering`;
+function updateCounters() {
+  const questionCounter = document.createElement('div');
+  questionCounter.className = 'counter';
+  questionCounter.innerHTML = `
+    <span>Questions: ${questionCount}</span>
+    <button onclick="changeQuestionCount(1)">+</button>
+    <button onclick="changeQuestionCount(-1)">-</button>
+    <span>Answers: ${answerCount}</span>
+    <button onclick="changeAnswerCount(1)">+</button>
+    <button onclick="changeAnswerCount(-1)">-</button>
+  `;
+  document.getElementById('questions_table').appendChild(questionCounter);
+}
+
+function changeQuestionCount(delta) {
+  if (questionCount + delta <= 45 && questionCount + delta >= 0) {
+    questionCount += delta;
+    renderQuestions('s');
   }
 }
 
-function adjustAnswers(value) {
-  if (value > 0 && answerCount < questionCount) {
-    answerCount++;
-  } else if (value < 0 && answerCount > 0) {
-    answerCount--;
+function changeAnswerCount(delta) {
+  if (answerCount + delta >= 0) {
+    answerCount += delta;
+    updateCounters();
   }
-  updateAnswerDisplay();
 }
 
 function startTimer() {
