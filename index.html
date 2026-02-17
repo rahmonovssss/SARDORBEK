@@ -23,15 +23,21 @@
   .checkmark { position: absolute; top: 0; left: 0; height: 22px; width: 22px; background: transparent; border: 2px solid #55606a; border-radius: 50%; z-index: 1; }
   .opt-item input:checked ~ .checkmark { background: var(--accent); border-color: var(--accent); }
   .opt-item input:checked ~ .checkmark::after { content: ""; position: absolute; width: 8px; height: 8px; background: white; border-radius: 50%; top: 7px; left: 7px; }
-  .yopiq-field { background: #252e37; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 5px; width: 90%; text-align: center; }
+  
+  /* Yopiq savollar uchun maxsus dizayn */
+  .yopiq-wrapper { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .yopiq-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+  .mini-btn { background: #2d3842; color: white; border: 1px solid #444; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+  .ans-label { font-size: 11px; color: #00b4d8; font-weight: bold; }
+  .yopiq-field { background: #0d1217; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 5px; width: 90%; text-align: center; }
+  
+  /* Savol qo'shish/ayirish pastki qismi */
+  .q-row-control { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px; padding: 10px; background: #1c2329; border-radius: 8px; border: 1px dashed #444; }
+
   .hidden { display: none; }
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
   .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
   .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
-  .counter-container { display: flex; align-items: center; justify-content: center; margin-top: 5px; }
-  .counter-button { background: var(--border); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-  .counter-button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .counter-display { margin: 0 10px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -65,7 +71,15 @@
       <span class="field-label" style="margin-top:10px;">Test kodi</span>
       <input type="number" id="create_test_code" placeholder="Kodni kiriting">
     </div>
+    
     <div id="questions_table"></div>
+
+    <div class="q-row-control">
+        <button class="mini-btn" onclick="changeTotalQ(-1)" style="width: 40px; height: 40px; background: #e63946;">-</button>
+        <span id="total_q_lbl" style="font-weight: bold;">45 ta savol</span>
+        <button class="mini-btn" onclick="changeTotalQ(1)" style="width: 40px; height: 40px; background: #2a9d8f;">+</button>
+    </div>
+
     <div style="margin: 20px 0;">
       <div id="error_msg" style="color: #ff4d4d; text-align: center; margin-bottom: 10px; display: none;">Balans yetarli emas!</div>
       <button class="btn" id="submit_btn" onclick="processData()">SAQLASH</button>
@@ -82,19 +96,23 @@ const userBalance = parseInt(urlParams.get('balance')) || 0;
 const testCount = parseInt(urlParams.get('count')) || 0;
 
 let testMap = {};
-let openQuestionCount = 10; // Yopiq savollar soni (dastlab 10)
-// Botdan kelgan fan nomlarini decode qilish
+let currentTotalQ = 45;
+let rowAnsCounts = {}; // Har bir yopiq savol uchun javoblar soni
+
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
 } catch(e) { console.error("Ma'lumotlarni yuklashda xato"); }
 
 window.onload = () => {
+  // Yopiq savollar uchun default 1 tadan javob
+  for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
+
   if (mode === 'create') {
     document.getElementById('title').innerText = "Test yaratish";
     document.getElementById('create-header').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
-    renderQuestions('c');
+    renderQuestions();
     if (testCount >= 1 && userBalance < 2000) {
         document.getElementById('submit_btn').disabled = true;
         document.getElementById('error_msg').style.display = 'block';
@@ -105,38 +123,44 @@ window.onload = () => {
   }
 };
 
+function changeTotalQ(val) {
+    let next = currentTotalQ + val;
+    if (next >= 36 && next <= 45) {
+        currentTotalQ = next;
+        document.getElementById('total_q_lbl').innerText = currentTotalQ + " ta savol";
+        renderQuestions();
+    }
+}
+
+function changeAnsCount(qNum, val) {
+    let next = (rowAnsCounts[qNum] || 1) + val;
+    if (next >= 1 && next <= 5) {
+        rowAnsCounts[qNum] = next;
+        renderQuestions();
+    }
+}
+
 function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
-  
-  // Python kodidagi test_map orqali fan nomini tekshirish
   const subject = testMap[code.toString()];
   if (!subject) {
       alert("⚠️ Xato: Bunday kodli test topilmadi!");
       return;
   }
-  
   document.getElementById('display_subject').innerText = "Fan: " + subject;
   document.getElementById('info-bar').style.display = 'block';
   document.getElementById('solve-init').classList.add('hidden');
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
-  renderQuestions('s');
+  renderQuestions();
   startTimer();
 }
 
-function changeOpenQuestionCount(delta) {
-    openQuestionCount += delta;
-    if (openQuestionCount < 0) openQuestionCount = 0;
-    if (openQuestionCount > 45) openQuestionCount = 45;
-
-    renderQuestions(mode === 'create' ? 'c' : 's');
-}
-
-function renderQuestions(prefix) {
+function renderQuestions() {
   let html = `<table><tr><th>№</th><th>Variantlar</th></tr>`;
-  for (let i = 1; i <= 45; i++) {
+  for (let i = 1; i <= currentTotalQ; i++) {
     if (i <= 35) {
       const cols = i <= 32 ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E', 'F'];
       html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="opt-grid">`;
@@ -145,16 +169,19 @@ function renderQuestions(prefix) {
       });
       html += `</div></td></tr>`;
     } else {
+      let count = rowAnsCounts[i] || 1;
+      let label = count > 1 ? count + " ta Javob" : "Javob";
       html += `<tr id="row_${i}"><td><b>${i}</b></td><td>
-                <div style="display:flex; flex-direction: column; align-items:center;">
-                  <div class="counter-container">
-                    <button class="counter-button" onclick="changeOpenQuestionCount(-1)" ${i <= 36 ? 'disabled' : ''}>-</button>
-                    <span class="counter-display">${openQuestionCount > 1 ? openQuestionCount - 35 + ' Javob' : 'Javob'}</span>
-                    <button class="counter-button" onclick="changeOpenQuestionCount(1)" ${openQuestionCount >= 45 ? 'disabled' : ''}>+</button>
-                  </div>
-                  <input type="text" class="yopiq-field" id="ans${i}" placeholder="JAVOB">
-                </div>
-               </td></tr>`;
+        <div class="yopiq-wrapper">
+            <div class="yopiq-controls">
+                <button class="mini-btn" onclick="changeAnsCount(${i}, -1)">-</button>
+                <span class="ans-label">${label}</span>
+                <button class="mini-btn" onclick="changeAnsCount(${i}, 1)">+</button>
+            </div>`;
+      for(let j=0; j<count; j++) {
+        html += `<input type="text" class="yopiq-field" id="ans${i}_${j}" placeholder="Javob ${count > 1 ? j+1 : ''}">`;
+      }
+      html += `</div></td></tr>`;
     }
   }
   document.getElementById('questions_table').innerHTML = html + `</table>`;
@@ -179,22 +206,28 @@ function processData() {
   const results = {};
   let emptyQuestions = [];
 
-  for (let i = 1; i <= 45; i++) {
-    let val = "";
+  for (let i = 1; i <= currentTotalQ; i++) {
     let row = document.getElementById(`row_${i}`);
     row.classList.remove('unanswered');
     if (i <= 35) {
       const sel = document.querySelector(`input[name="q${i}"]:checked`);
-      val = sel ? sel.value : "";
+      let val = sel ? sel.value : "";
+      if (!val) { emptyQuestions.push(i); row.classList.add('unanswered'); }
+      results[i] = val;
     } else {
-      val = document.getElementById(`ans${i}`).value.trim();
+      let count = rowAnsCounts[i] || 1;
+      let subValues = [];
+      for(let j=0; j<count; j++) {
+          let v = document.getElementById(`ans${i}_${j}`).value.trim();
+          if(v) subValues.push(v);
+      }
+      if (subValues.length < count) { emptyQuestions.push(i); row.classList.add('unanswered'); }
+      results[i] = subValues.join('|');
     }
-    if (!val) { emptyQuestions.push(i); row.classList.add('unanswered'); }
-    results[i] = val;
   }
 
   if (emptyQuestions.length > 0) {
-    alert("Barcha savollarni belgilang!");
+    alert("Barcha savollarni to'ldiring!");
     return;
   }
 
@@ -202,7 +235,8 @@ function processData() {
     type: mode,
     test_code: testCode,
     subject: mode === 'create' ? subject : "",
-    keys: results
+    keys: results,
+    total: currentTotalQ
   }));
   tg.close();
 }
