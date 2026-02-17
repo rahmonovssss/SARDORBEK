@@ -93,12 +93,12 @@ const testCount = parseInt(urlParams.get('count')) || 0;
 let testMap = {};
 let currentTotalQ = 45;
 let rowAnsCounts = {};
-let savedAnswers = {}; // Ma'lumotlarni vaqtincha saqlash
+let savedAnswers = {}; // Temporary data storage
 
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
-} catch(e) { console.error("Xato"); }
+} catch(e) { console.error("Error"); }
 
 window.onload = () => {
   for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
@@ -120,12 +120,12 @@ window.onload = () => {
 };
 
 function saveInputs() {
-    for (let i = 1; i <= currentTotalQ; i++) {
+    for (let i = 1; i <= 45; i++) {
         if (i <= 35) {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
         } else {
-            for (let j = 0; j < (rowAnsCounts[i] || 1); j++) {
+            for (let j = 0; j < 5; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el) savedAnswers[`ans${i}_${j}`] = el.value;
             }
@@ -141,7 +141,7 @@ function restoreInputs() {
                 if (rb) rb.checked = true;
             }
         } else {
-            for (let j = 0; j < (rowAnsCounts[i] || 1); j++) {
+            for (let j = 0; j < 5; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el && savedAnswers[`ans${i}_${j}`]) el.value = savedAnswers[`ans${i}_${j}`];
             }
@@ -174,8 +174,6 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Botdan kelgan ma'lumotlarni olish (Bot config yuborishi kerak)
-  // Bu yerda URL orqali kelgan configs'ni tekshiramiz
   const confRaw = urlParams.get('configs');
   if(confRaw) {
       const conf = JSON.parse(decodeURIComponent(confRaw));
@@ -275,7 +273,7 @@ function processData() {
     subject: mode === 'create' ? subject : "",
     keys: results,
     total: currentTotalQ,
-    configs: rowAnsCounts // Botga yuboriladi
+    configs: rowAnsCounts // Sent to the bot
   }));
   tg.close();
 }
