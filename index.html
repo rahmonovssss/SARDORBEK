@@ -23,17 +23,12 @@
   .checkmark { position: absolute; top: 0; left: 0; height: 22px; width: 22px; background: transparent; border: 2px solid #55606a; border-radius: 50%; z-index: 1; }
   .opt-item input:checked ~ .checkmark { background: var(--accent); border-color: var(--accent); }
   .opt-item input:checked ~ .checkmark::after { content: ""; position: absolute; width: 8px; height: 8px; background: white; border-radius: 50%; top: 7px; left: 7px; }
-  
-  /* Yopiq savollar uchun maxsus dizayn */
   .yopiq-wrapper { display: flex; flex-direction: column; align-items: center; gap: 5px; }
   .yopiq-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
   .mini-btn { background: #2d3842; color: white; border: 1px solid #444; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
   .ans-label { font-size: 11px; color: #00b4d8; font-weight: bold; }
   .yopiq-field { background: #0d1217; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 5px; width: 90%; text-align: center; }
-  
-  /* Savol qo'shish/ayirish pastki qismi */
   .q-row-control { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px; padding: 10px; background: #1c2329; border-radius: 8px; border: 1px dashed #444; }
-
   .hidden { display: none; }
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
   .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
@@ -74,7 +69,7 @@
     
     <div id="questions_table"></div>
 
-    <div class="q-row-control">
+    <div id="global_q_control" class="q-row-control hidden">
         <button class="mini-btn" onclick="changeTotalQ(-1)" style="width: 40px; height: 40px; background: #e63946;">-</button>
         <span id="total_q_lbl" style="font-weight: bold;">45 ta savol</span>
         <button class="mini-btn" onclick="changeTotalQ(1)" style="width: 40px; height: 40px; background: #2a9d8f;">+</button>
@@ -97,20 +92,21 @@ const testCount = parseInt(urlParams.get('count')) || 0;
 
 let testMap = {};
 let currentTotalQ = 45;
-let rowAnsCounts = {}; // Har bir yopiq savol uchun javoblar soni
+let rowAnsCounts = {};
+let savedState = {}; // Belgilangan javoblarni saqlab qolish uchun
 
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
-} catch(e) { console.error("Ma'lumotlarni yuklashda xato"); }
+} catch(e) { console.error("Xato"); }
 
 window.onload = () => {
-  // Yopiq savollar uchun default 1 tadan javob
   for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
 
   if (mode === 'create') {
     document.getElementById('title').innerText = "Test yaratish";
     document.getElementById('create-header').classList.remove('hidden');
+    document.getElementById('global_q_control').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
     renderQuestions();
     if (testCount >= 1 && userBalance < 2000) {
@@ -123,33 +119,67 @@ window.onload = () => {
   }
 };
 
+function saveCurrentData() {
+    for (let i = 1; i <= 45; i++) {
+        if (i <= 35) {
+            const sel = document.querySelector(`input[name="q${i}"]:checked`);
+            savedState[`q${i}`] = sel ? sel.value : null;
+        } else {
+            let count = rowAnsCounts[i] || 1;
+            for(let j=0; j<5; j++) {
+                const el = document.getElementById(`ans${i}_${j}`);
+                if(el) savedState[`ans${i}_${j}`] = el.value;
+            }
+        }
+    }
+}
+
+function restoreData() {
+    for (let i = 1; i <= currentTotalQ; i++) {
+        if (i <= 35) {
+            if(savedState[`q${i}`]) {
+                const rad = document.querySelector(`input[name="q${i}"][value="${savedState[`q${i}`]}"]`);
+                if(rad) rad.checked = true;
+            }
+        } else {
+            let count = rowAnsCounts[i] || 1;
+            for(let j=0; j<count; j++) {
+                const el = document.getElementById(`ans${i}_${j}`);
+                if(el && savedState[`ans${i}_${j}`]) el.value = savedState[`ans${i}_${j}`];
+            }
+        }
+    }
+}
+
 function changeTotalQ(val) {
+    saveCurrentData();
     let next = currentTotalQ + val;
     if (next >= 36 && next <= 45) {
         currentTotalQ = next;
         document.getElementById('total_q_lbl').innerText = currentTotalQ + " ta savol";
         renderQuestions();
+        restoreData();
     }
 }
 
 function changeAnsCount(qNum, val) {
+    saveCurrentData();
     let next = (rowAnsCounts[qNum] || 1) + val;
     if (next >= 1 && next <= 5) {
         rowAnsCounts[qNum] = next;
         renderQuestions();
+        restoreData();
     }
 }
 
 function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
-  const subject = testMap[code.toString()];
-  if (!subject) {
-      alert("⚠️ Xato: Bunday kodli test topilmadi!");
-      return;
-  }
-  document.getElementById('display_subject').innerText = "Fan: " + subject;
-  document.getElementById('info-bar').style.display = 'block';
+  
+  // Test ma'lumotlarini qabul qilish (Botdan kelgan keys strukturasini tekshirish)
+  // Bu yerda logic: agar create qilinganda total yuborilgan bo'lsa, shuni olish kerak
+  // Hozircha default botdan kelgan javoblarga qarab render qiladi
+  
   document.getElementById('solve-init').classList.add('hidden');
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
@@ -170,14 +200,17 @@ function renderQuestions() {
       html += `</div></td></tr>`;
     } else {
       let count = rowAnsCounts[i] || 1;
-      let label = count > 1 ? count + " ta Javob" : "Javob";
-      html += `<tr id="row_${i}"><td><b>${i}</b></td><td>
-        <div class="yopiq-wrapper">
-            <div class="yopiq-controls">
+      html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="yopiq-wrapper">`;
+      
+      if(mode === 'create') {
+          let label = count > 1 ? count + " ta Javob" : "Javob";
+          html += `<div class="yopiq-controls">
                 <button class="mini-btn" onclick="changeAnsCount(${i}, -1)">-</button>
                 <span class="ans-label">${label}</span>
                 <button class="mini-btn" onclick="changeAnsCount(${i}, 1)">+</button>
             </div>`;
+      }
+      
       for(let j=0; j<count; j++) {
         html += `<input type="text" class="yopiq-field" id="ans${i}_${j}" placeholder="Javob ${count > 1 ? j+1 : ''}">`;
       }
@@ -199,11 +232,10 @@ function startTimer() {
 function processData() {
   const testCode = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
   const subject = mode === 'create' ? document.getElementById('subject_select').value : "ok";
-
-  if (!testCode) return alert("Test kodini kiriting!");
-  if (mode === 'create' && !subject) return alert("Fanni tanlang!");
+  if (!testCode) return alert("Kodni kiriting!");
 
   const results = {};
+  const row_configs = {}; // Har bir savol nechta javobdan iboratligi
   let emptyQuestions = [];
 
   for (let i = 1; i <= currentTotalQ; i++) {
@@ -211,11 +243,11 @@ function processData() {
     row.classList.remove('unanswered');
     if (i <= 35) {
       const sel = document.querySelector(`input[name="q${i}"]:checked`);
-      let val = sel ? sel.value : "";
-      if (!val) { emptyQuestions.push(i); row.classList.add('unanswered'); }
-      results[i] = val;
+      results[i] = sel ? sel.value : "";
+      if (!results[i]) { emptyQuestions.push(i); row.classList.add('unanswered'); }
     } else {
       let count = rowAnsCounts[i] || 1;
+      row_configs[i] = count;
       let subValues = [];
       for(let j=0; j<count; j++) {
           let v = document.getElementById(`ans${i}_${j}`).value.trim();
@@ -236,7 +268,8 @@ function processData() {
     test_code: testCode,
     subject: mode === 'create' ? subject : "",
     keys: results,
-    total: currentTotalQ
+    total: currentTotalQ,
+    configs: row_configs // Bu botga boradi va bot solve rejimida shunga qarab render qiladi
   }));
   tg.close();
 }
