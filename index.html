@@ -69,7 +69,7 @@
     
     <div id="questions_table"></div>
 
-    <div id="global_q_control" class="q-row-control hidden">
+    <div id="q_total_control" class="q-row-control hidden">
         <button class="mini-btn" onclick="changeTotalQ(-1)" style="width: 40px; height: 40px; background: #e63946;">-</button>
         <span id="total_q_lbl" style="font-weight: bold;">45 ta savol</span>
         <button class="mini-btn" onclick="changeTotalQ(1)" style="width: 40px; height: 40px; background: #2a9d8f;">+</button>
@@ -93,7 +93,7 @@ const testCount = parseInt(urlParams.get('count')) || 0;
 let testMap = {};
 let currentTotalQ = 45;
 let rowAnsCounts = {};
-let savedState = {}; // Belgilangan javoblarni saqlab qolish uchun
+let savedAnswers = {}; // Ma'lumotlarni vaqtincha saqlash
 
 try {
   const rawData = urlParams.get('test_data');
@@ -106,7 +106,7 @@ window.onload = () => {
   if (mode === 'create') {
     document.getElementById('title').innerText = "Test yaratish";
     document.getElementById('create-header').classList.remove('hidden');
-    document.getElementById('global_q_control').classList.remove('hidden');
+    document.getElementById('q_total_control').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
     renderQuestions();
     if (testCount >= 1 && userBalance < 2000) {
@@ -119,56 +119,54 @@ window.onload = () => {
   }
 };
 
-function saveCurrentData() {
+function saveInputs() {
     for (let i = 1; i <= 45; i++) {
         if (i <= 35) {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
-            savedState[`q${i}`] = sel ? sel.value : null;
+            savedAnswers[`q${i}`] = sel ? sel.value : null;
         } else {
-            let count = rowAnsCounts[i] || 1;
-            for(let j=0; j<5; j++) {
+            for (let j = 0; j < 5; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
-                if(el) savedState[`ans${i}_${j}`] = el.value;
+                if (el) savedAnswers[`ans${i}_${j}`] = el.value;
             }
         }
     }
 }
 
-function restoreData() {
+function restoreInputs() {
     for (let i = 1; i <= currentTotalQ; i++) {
         if (i <= 35) {
-            if(savedState[`q${i}`]) {
-                const rad = document.querySelector(`input[name="q${i}"][value="${savedState[`q${i}`]}"]`);
-                if(rad) rad.checked = true;
+            if (savedAnswers[`q${i}`]) {
+                const rb = document.querySelector(`input[name="q${i}"][value="${savedAnswers[`q${i}`]}"]`);
+                if (rb) rb.checked = true;
             }
         } else {
-            let count = rowAnsCounts[i] || 1;
-            for(let j=0; j<count; j++) {
+            for (let j = 0; j < 5; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
-                if(el && savedState[`ans${i}_${j}`]) el.value = savedState[`ans${i}_${j}`];
+                if (el && savedAnswers[`ans${i}_${j}`]) el.value = savedAnswers[`ans${i}_${j}`];
             }
         }
     }
 }
 
 function changeTotalQ(val) {
-    saveCurrentData();
+    saveInputs();
     let next = currentTotalQ + val;
     if (next >= 36 && next <= 45) {
         currentTotalQ = next;
         document.getElementById('total_q_lbl').innerText = currentTotalQ + " ta savol";
         renderQuestions();
-        restoreData();
+        restoreInputs();
     }
 }
 
 function changeAnsCount(qNum, val) {
-    saveCurrentData();
+    saveInputs();
     let next = (rowAnsCounts[qNum] || 1) + val;
     if (next >= 1 && next <= 5) {
         rowAnsCounts[qNum] = next;
         renderQuestions();
-        restoreData();
+        restoreInputs();
     }
 }
 
@@ -176,10 +174,20 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Test ma'lumotlarini qabul qilish (Botdan kelgan keys strukturasini tekshirish)
-  // Bu yerda logic: agar create qilinganda total yuborilgan bo'lsa, shuni olish kerak
-  // Hozircha default botdan kelgan javoblarga qarab render qiladi
-  
+  // Botdan kelgan ma'lumotlarni olish (Bot config yuborishi kerak)
+  // Bu yerda URL orqali kelgan configs'ni tekshiramiz
+  const confRaw = urlParams.get('configs');
+  if(confRaw) {
+      const conf = JSON.parse(decodeURIComponent(confRaw));
+      currentTotalQ = parseInt(urlParams.get('total')) || 45;
+      rowAnsCounts = conf;
+  }
+
+  const subject = testMap[code.toString()];
+  if (!subject) { alert("⚠️ Xato: Bunday kodli test topilmadi!"); return; }
+
+  document.getElementById('display_subject').innerText = "Fan: " + subject;
+  document.getElementById('info-bar').style.display = 'block';
   document.getElementById('solve-init').classList.add('hidden');
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
@@ -202,7 +210,7 @@ function renderQuestions() {
       let count = rowAnsCounts[i] || 1;
       html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="yopiq-wrapper">`;
       
-      if(mode === 'create') {
+      if (mode === 'create') {
           let label = count > 1 ? count + " ta Javob" : "Javob";
           html += `<div class="yopiq-controls">
                 <button class="mini-btn" onclick="changeAnsCount(${i}, -1)">-</button>
@@ -232,10 +240,9 @@ function startTimer() {
 function processData() {
   const testCode = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
   const subject = mode === 'create' ? document.getElementById('subject_select').value : "ok";
-  if (!testCode) return alert("Kodni kiriting!");
+  if (!testCode) return alert("Test kodini kiriting!");
 
   const results = {};
-  const row_configs = {}; // Har bir savol nechta javobdan iboratligi
   let emptyQuestions = [];
 
   for (let i = 1; i <= currentTotalQ; i++) {
@@ -247,7 +254,6 @@ function processData() {
       if (!results[i]) { emptyQuestions.push(i); row.classList.add('unanswered'); }
     } else {
       let count = rowAnsCounts[i] || 1;
-      row_configs[i] = count;
       let subValues = [];
       for(let j=0; j<count; j++) {
           let v = document.getElementById(`ans${i}_${j}`).value.trim();
@@ -269,7 +275,7 @@ function processData() {
     subject: mode === 'create' ? subject : "",
     keys: results,
     total: currentTotalQ,
-    configs: row_configs // Bu botga boradi va bot solve rejimida shunga qarab render qiladi
+    configs: rowAnsCounts // Botga yuboriladi
   }));
   tg.close();
 }
