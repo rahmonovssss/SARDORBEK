@@ -95,9 +95,9 @@ let currentTotalQ = 45;
 let rowAnsCounts = {};
 let savedAnswers = {};
 
-// 1. URL dan ma'lumotlarni o'qish (Hamma funksiyalar ishlashi uchun onload dan oldin)
-const confRaw = urlParams.get('configs');
+// MUHIM: URL-dan sozlamalarni o'qib olish (Tuzatildi)
 const totalRaw = urlParams.get('total');
+const confRaw = urlParams.get('configs');
 if(totalRaw) currentTotalQ = parseInt(totalRaw);
 if(confRaw) {
     try { rowAnsCounts = JSON.parse(decodeURIComponent(confRaw)); } catch(e) {}
@@ -134,7 +134,6 @@ function saveInputs() {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
         } else {
-            let count = rowAnsCounts[i] || 1;
             for (let j = 0; j < 5; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el) savedAnswers[`ans${i}_${j}`] = el.value;
