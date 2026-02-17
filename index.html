@@ -28,6 +28,8 @@
   .timer { position: sticky; top: 0; background: #e63946; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; z-index: 100; margin-bottom: 10px; }
   .subject-badge { background: #2a9d8f; color: white; padding: 5px 10px; border-radius: 5px; font-size: 14px; margin-top: 5px; display: inline-block; }
   .unanswered { border: 2px solid #ff4d4d !important; border-radius: 5px; }
+  .adjust-buttons { display: flex; justify-content: center; margin-top: 10px; }
+  .adjust-btn { background: var(--accent); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -78,6 +80,9 @@ const userBalance = parseInt(urlParams.get('balance')) || 0;
 const testCount = parseInt(urlParams.get('count')) || 0;
 
 let testMap = {};
+let questionCount = 45; // Maximum number of questions
+let answerCount = 0; // Number of answers given
+
 // Botdan kelgan fan nomlarini decode qilish
 try {
   const rawData = urlParams.get('test_data');
@@ -104,7 +109,6 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Python kodidagi test_map orqali fan nomini tekshirish
   const subject = testMap[code.toString()];
   if (!subject) {
       alert("⚠️ Xato: Bunday kodli test topilmadi!");
@@ -123,7 +127,7 @@ function startSolving() {
 
 function renderQuestions(prefix) {
   let html = `<table><tr><th>№</th><th>Variantlar</th></tr>`;
-  for (let i = 1; i <= 45; i++) {
+  for (let i = 1; i <= questionCount; i++) {
     if (i <= 35) {
       const cols = i <= 32 ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E', 'F'];
       html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="opt-grid">`;
@@ -136,6 +140,32 @@ function renderQuestions(prefix) {
     }
   }
   document.getElementById('questions_table').innerHTML = html + `</table>`;
+  updateAnswerDisplay();
+}
+
+function updateAnswerDisplay() {
+  const answerDisplay = document.getElementById('answer_display');
+  if (!answerDisplay) {
+    const newDisplay = document.createElement('div');
+    newDisplay.id = 'answer_display';
+    newDisplay.innerHTML = `<div class="adjust-buttons">
+      <button class="adjust-btn" onclick="adjustAnswers(1)">+</button>
+      <span id="answer_count">${answerCount} Javob bering</span>
+      <button class="adjust-btn" onclick="adjustAnswers(-1)">-</button>
+    </div>`;
+    document.getElementById('test-area').appendChild(newDisplay);
+  } else {
+    document.getElementById('answer_count').innerText = `${answerCount} Javob bering`;
+  }
+}
+
+function adjustAnswers(value) {
+  if (value > 0 && answerCount < questionCount) {
+    answerCount++;
+  } else if (value < 0 && answerCount > 0) {
+    answerCount--;
+  }
+  updateAnswerDisplay();
 }
 
 function startTimer() {
@@ -157,7 +187,7 @@ function processData() {
   const results = {};
   let emptyQuestions = [];
 
-  for (let i = 1; i <= 45; i++) {
+  for (let i = 1; i <= questionCount; i++) {
     let val = "";
     let row = document.getElementById(`row_${i}`);
     row.classList.remove('unanswered');
@@ -186,4 +216,4 @@ function processData() {
 }
 </script>
 </body>
-</html>
+  </html>
