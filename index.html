@@ -93,7 +93,7 @@ const testCount = parseInt(urlParams.get('count')) || 0;
 let testMap = {};
 let currentTotalQ = 45;
 let rowAnsCounts = {};
-let savedAnswers = {}; // Ma'lumotlarni vaqtincha saqlash
+let savedAnswers = {};
 
 try {
   const rawData = urlParams.get('test_data');
@@ -120,7 +120,7 @@ window.onload = () => {
 };
 
 function saveInputs() {
-    for (let i = 1; i <= 45; i++) {
+    for (let i = 1; i <= currentTotalQ; i++) {
         if (i <= 35) {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
@@ -174,13 +174,20 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Botdan kelgan ma'lumotlarni olish (Bot config yuborishi kerak)
-  // Bu yerda URL orqali kelgan configs'ni tekshiramiz
+  // Yaratuvchi tomonidan yuborilgan sozlamalarni URL'dan olish
   const confRaw = urlParams.get('configs');
+  const totalRaw = urlParams.get('total');
+
   if(confRaw) {
-      const conf = JSON.parse(decodeURIComponent(confRaw));
-      currentTotalQ = parseInt(urlParams.get('total')) || 45;
-      rowAnsCounts = conf;
+      try {
+          // rowAnsCounts ni yangilaymiz (qaysi savolda nechta katak borligi)
+          rowAnsCounts = JSON.parse(decodeURIComponent(confRaw));
+      } catch(e) { console.error("Config yuklashda xato"); }
+  }
+  
+  if(totalRaw) {
+      // Umumiy savollar sonini yangilaymiz (masalan, 45 ta)
+      currentTotalQ = parseInt(totalRaw);
   }
 
   const subject = testMap[code.toString()];
@@ -192,6 +199,8 @@ function startSolving() {
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
+  
+  // Yangilangan rowAnsCounts va currentTotalQ bilan jadvalni chizamiz
   renderQuestions();
   startTimer();
 }
@@ -275,7 +284,7 @@ function processData() {
     subject: mode === 'create' ? subject : "",
     keys: results,
     total: currentTotalQ,
-    configs: rowAnsCounts // Botga yuboriladi
+    configs: rowAnsCounts 
   }));
   tg.close();
 }
