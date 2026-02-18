@@ -177,7 +177,7 @@ function startSolving() {
   const subject = testMap[code.toString()];
   if (!subject) { alert("⚠️ Xato: Bunday kodli test topilmadi!"); return; }
 
-  // URL'dan barcha testlar uchun konfiguratsiyalarni qidiramiz
+  // URL'dan ma'lumotlarni olish
   const confMapRaw = urlParams.get('configs_map');
   const totalsMapRaw = urlParams.get('totals_map');
   
@@ -186,16 +186,10 @@ function startSolving() {
           const allConfigs = JSON.parse(decodeURIComponent(confMapRaw));
           const allTotals = JSON.parse(decodeURIComponent(totalsMapRaw));
           
-          // Agar kiritilgan kod uchun maxsus konfiguratsiya bo'lsa, uni yuklaymiz
-          if (allConfigs[code.toString()]) {
-              rowAnsCounts = allConfigs[code.toString()];
-          }
-          if (allTotals[code.toString()]) {
-              currentTotalQ = parseInt(allTotals[code.toString()]);
-          }
-      } catch(e) {
-          console.error("Konfiguratsiyani yuklashda xato:", e);
-      }
+          // Kiritilgan kodga mos sozlamalarni yuklash
+          if (allConfigs[code]) rowAnsCounts = allConfigs[code];
+          if (allTotals[code]) currentTotalQ = parseInt(allTotals[code]);
+      } catch(e) { console.error("Xato:", e); }
   }
 
   document.getElementById('display_subject').innerText = "Fan: " + subject;
@@ -205,7 +199,7 @@ function startSolving() {
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
   
-  renderQuestions(); // Mana shu yerda yangilangan rowAnsCounts bilan katakchalar chiziladi
+  renderQuestions(); // Yangilangan katakchalar bilan chizish
   startTimer();
 }
 
@@ -294,4 +288,4 @@ function processData() {
 }
 </script>
 </body>
-  </html>
+</html>
