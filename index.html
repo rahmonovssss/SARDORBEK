@@ -6,6 +6,7 @@
 <title>Milliy Sertifikat Bot</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
+  /* Stil kodlari (siz originalga mos keltirsangiz bo‘ladi) */
   :root { --bg: #121920; --card: #1c2329; --accent: #00b4d8; --border: #2d3842; --text: #ffffff; }
   body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
   .header { text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
@@ -39,45 +40,32 @@
 
 <div id="main-container">
   <div class="header" id="title">Milliy Sertifikat Bot</div>
-  <div id="solve-init" class="hidden">
-    <div class="card">
-      <span class="field-label">Test kodi</span>
-      <input type="number" id="solve_test_code" placeholder="Kodni kiriting" />
-      <button class="btn" onclick="startSolving()">OK</button>
-    </div>
+  
+  <!-- Test yaratish uchun qisqa bo‘lim -->
+  <div id="create-header" class="card hidden">
+    <span class="field-label">Fanni tanlang</span>
+    <select id="subject_select">
+      <option value="" disabled selected>Fanni tanlang...</option>
+      <option value="Matematika">Matematika</option>
+      <option value="Fizika">Fizika</option>
+      <option value="Ona tili va adabiyot">Ona tili va adabiyot</option>
+      <option value="Kimyo">Kimyo</option>
+      <option value="Biologiya">Biologiya</option>
+      <option value="Tarix">Tarix</option>
+    </select>
+    <span class="field-label" style="margin-top:10px;">Test kodi</span>
+    <input type="number" id="create_test_code" placeholder="Kodni kiriting" />
+    <button class="btn" onclick="generateQuestions()">Test yaratish</button>
   </div>
-
+  
   <div id="test-area" class="hidden">
     <div id="timer" class="timer hidden">03:00:00</div>
     <div id="info-bar" class="card" style="text-align: center; display: none;">
         <span id="display_subject" class="subject-badge"></span>
     </div>
-    <div id="create-header" class="card hidden">
-      <span class="field-label">Fanni tanlang</span>
-      <select id="subject_select">
-        <option value="" disabled selected>Fanni tanlang...</option>
-        <option value="Matematika">Matematika</option>
-        <option value="Fizika">Fizika</option>
-        <option value="Ona tili va adabiyot">Ona tili va adabiyot</option>
-        <option value="Kimyo">Kimyo</option>
-        <option value="Biologiya">Biologiya</option>
-        <option value="Tarix">Tarix</option>
-      </select>
-      <span class="field-label" style="margin-top:10px;">Test kodi</span>
-      <input type="number" id="create_test_code" placeholder="Kodni kiriting">
-    </div>
-    
     <div id="questions_table"></div>
-
-    <div id="q_total_control" class="q-row-control hidden">
-        <button class="mini-btn" onclick="changeTotalQ(-1)" style="width: 40px; height: 40px; background: #e63946;">-</button>
-        <span id="total_q_lbl" style="font-weight: bold;">45 ta savol</span>
-        <button class="mini-btn" onclick="changeTotalQ(1)" style="width: 40px; height: 40px; background: #2a9d8f;">+</button>
-    </div>
-
     <div style="margin: 20px 0;">
-      <div id="error_msg" style="color: #ff4d4d; text-align: center; margin-bottom: 10px; display: none;">Balans yetarli emas!</div>
-      <button class="btn" id="submit_btn" onclick="processData()">SAQLASH</button>
+      <button class="btn" id="submit_btn" onclick="processData()">Yuborish</button>
     </div>
   </div>
 </div>
@@ -85,203 +73,131 @@
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
-const urlParams = new URLSearchParams(window.location.search);
-const mode = urlParams.get('mode') || 'create';
-const userBalance = parseInt(urlParams.get('balance')) || 0;
-const testCount = parseInt(urlParams.get('count')) || 0;
 
-let testMap = {};
-let currentTotalQ = 45;
-let rowAnsCounts = {};
-let savedAnswers = {};
+let currentTotalQ = 45; // maksimal savol soni
+let rowAnsCounts = {}; // har bir savol uchun javoblar soni
+let savedAnswers = {}; // javoblarni vaqtincha saqlash
 
-try {
-  const rawData = urlParams.get('test_data');
-  if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
-} catch(e) { console.error("Xato"); }
+// 45 ta savol uchun javoblar sonini 3 ga teng qilish
+for (let i=1; i<=45; i++) {
+  rowAnsCounts[i] = 3;
+}
 
-window.onload = () => {
-  for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
-
-  if (mode === 'create') {
-    document.getElementById('title').innerText = "Test yaratish";
-    document.getElementById('create-header').classList.remove('hidden');
-    document.getElementById('q_total_control').classList.remove('hidden');
-    document.getElementById('test-area').classList.remove('hidden');
-    renderQuestions();
-    if (testCount >= 1 && userBalance < 2000) {
-        document.getElementById('submit_btn').disabled = true;
-        document.getElementById('error_msg').style.display = 'block';
-    }
-  } else {
-    document.getElementById('title').innerText = "Javob yuborish";
-    document.getElementById('solve-init').classList.remove('hidden');
+// Test yaratish uchun
+function generateQuestions() {
+  // Fanni tanlash va test kodi kiritish
+  const subject = document.getElementById('subject_select').value;
+  const testCode = document.getElementById('create_test_code').value.trim();
+  if (!subject || !testCode) {
+    alert('Fanni va test kodini kiriting!');
+    return;
   }
-};
-
-function saveInputs() {
-    for (let i = 1; i <= currentTotalQ; i++) {
-        if (i <= 35) {
-            const sel = document.querySelector(`input[name="q${i}"]:checked`);
-            savedAnswers[`q${i}`] = sel ? sel.value : null;
-        } else {
-            for (let j = 0; j < 5; j++) {
-                const el = document.getElementById(`ans${i}_${j}`);
-                if (el) savedAnswers[`ans${i}_${j}`] = el.value;
-            }
-        }
-    }
-}
-
-function restoreInputs() {
-    for (let i = 1; i <= currentTotalQ; i++) {
-        if (i <= 35) {
-            if (savedAnswers[`q${i}`]) {
-                const rb = document.querySelector(`input[name="q${i}"][value="${savedAnswers[`q${i}`]}"]`);
-                if (rb) rb.checked = true;
-            }
-        } else {
-            let count = rowAnsCounts[i] || 1;
-            for (let j = 0; j < count; j++) {
-                const el = document.getElementById(`ans${i}_${j}`);
-                if (el && savedAnswers[`ans${i}_${j}`]) el.value = savedAnswers[`ans${i}_${j}`];
-            }
-        }
-    }
-}
-
-function changeTotalQ(val) {
-    saveInputs();
-    let next = currentTotalQ + val;
-    if (next >= 36 && next <= 45) {
-        currentTotalQ = next;
-        document.getElementById('total_q_lbl').innerText = currentTotalQ + " ta savol";
-        renderQuestions();
-        restoreInputs();
-    }
-}
-
-function changeAnsCount(qNum, val) {
-    saveInputs();
-    let next = (rowAnsCounts[qNum] || 1) + val;
-    if (next >= 1 && next <= 5) {
-        rowAnsCounts[qNum] = next;
-        renderQuestions();
-        restoreInputs();
-    }
-}
-
-function startSolving() {
-  const code = document.getElementById('solve_test_code').value;
-  if(!code) return alert("Kodni kiriting!");
   
-  const subject = testMap[code.toString()];
-  if (!subject) { alert("⚠️ Xato: Bunday kodli test topilmadi!"); return; }
-
-  // Yaratuvchi tomonidan belgilangan configlarni URL dan olish
-  const confRaw = urlParams.get('configs');
-  const totalRaw = urlParams.get('total');
+  // Render qilish
+  renderQuestions();
   
-  if(confRaw) {
-      try {
-          rowAnsCounts = JSON.parse(decodeURIComponent(confRaw));
-      } catch(e) { console.error("Config error"); }
-  }
-  if(totalRaw) {
-      currentTotalQ = parseInt(totalRaw);
-  }
-
-  document.getElementById('display_subject').innerText = "Fan: " + subject;
-  document.getElementById('info-bar').style.display = 'block';
-  document.getElementById('solve-init').classList.add('hidden');
+  // Ko'rsatish
+  document.getElementById('create-header').classList.add('hidden');
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
-  document.getElementById('submit_btn').innerText = "YUBORISH";
-  
-  renderQuestions();
+  document.getElementById('display_subject').innerText = "Fan: " + subject;
+  document.getElementById('info-bar').style.display = 'block';
+  document.getElementById('submit_btn').innerText = "Yuborish";
+
   startTimer();
 }
 
+// Savollarni chiqarish
 function renderQuestions() {
-  let html = `<table><tr><th>№</th><th>Variantlar</th></tr>`;
-  for (let i = 1; i <= currentTotalQ; i++) {
-    if (i <= 35) {
-      const cols = i <= 32 ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E', 'F'];
-      html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="opt-grid">`;
-      cols.forEach(opt => {
-        html += `<div class="opt-item"><input type="radio" name="q${i}" value="${opt}"><span class="checkmark"></span><span style="display:block; margin-top:25px; font-size:10px;">${opt}</span></div>`;
-      });
-      html += `</div></td></tr>`;
-    } else {
-      let count = rowAnsCounts[i] || 1;
-      html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="yopiq-wrapper">`;
-      
-      if (mode === 'create') {
-          let label = count > 1 ? count + " ta Javob" : "Javob";
-          html += `<div class="yopiq-controls">
-                <button class="mini-btn" onclick="changeAnsCount(${i}, -1)">-</button>
-                <span class="ans-label">${label}</span>
-                <button class="mini-btn" onclick="changeAnsCount(${i}, 1)">+</button>
-            </div>`;
-      }
-      
-      for(let j=0; j<count; j++) {
-        html += `<input type="text" class="yopiq-field" id="ans${i}_${j}" placeholder="Javob ${count > 1 ? j+1 : ''}">`;
-      }
-      html += `</div></td></tr>`;
+  let html = `<table><tr><th>№</th><th>Variantlar / Javoblar</th></tr>`;
+  for (let i=1; i<=currentTotalQ; i++) {
+    html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="yopiq-wrapper">`;
+    let count = rowAnsCounts[i] || 1;
+    for (let j=0; j<count; j++) {
+      html += `<input type="text" class="yopiq-field" id="ans${i}_${j}" placeholder="Javob ${count > 1 ? j+1 : ''}">`;
     }
+    html += `</div></td></tr>`;
   }
-  document.getElementById('questions_table').innerHTML = html + `</table>`;
+  html += `</table>`;
+  document.getElementById('questions_table').innerHTML = html;
 }
 
+// Timer boshlash
 function startTimer() {
-  let time = 3 * 60 * 60;
-  setInterval(() => {
-    let h = Math.floor(time / 3600), m = Math.floor((time % 3600) / 60), s = time % 60;
-    document.getElementById('timer').innerText = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
-    if (time > 0) time--;
+  let time = 3 * 60 * 60; // 3 soat
+  const timerEl = document.getElementById('timer');
+  timerEl.classList.remove('hidden');
+  const interval = setInterval(() => {
+    let h = Math.floor(time / 3600);
+    let m = Math.floor((time % 3600) / 60);
+    let s = time % 60;
+    timerEl.innerText = 
+      (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+    if (time <= 0) {
+      clearInterval(interval);
+      alert('Vaqt tugadi!');
+    }
+    time--;
   }, 1000);
 }
 
+// Javoblarni saqlash
+function saveInputs() {
+  for (let i=1; i<=currentTotalQ; i++) {
+    const count = rowAnsCounts[i] || 1;
+    let answers = [];
+    for (let j=0; j<count; j++) {
+      const val = document.getElementById(`ans${i}_${j}`).value.trim();
+      answers.push(val);
+    }
+    savedAnswers[`q${i}`] = answers; // massiv sifatida saqlash
+  }
+}
+
+// Javoblarni tiklash
+function restoreInputs() {
+  for (let i=1; i<=currentTotalQ; i++) {
+    const answers = savedAnswers[`q${i}`] || [];
+    const count = rowAnsCounts[i] || 1;
+    for (let j=0; j<count; j++) {
+      if (answers[j]) {
+        document.getElementById(`ans${i}_${j}`).value = answers[j];
+      }
+    }
+  }
+}
+
+// Javoblarni yuborish
 function processData() {
-  const testCode = mode === 'create' ? document.getElementById('create_test_code').value : document.getElementById('solve_test_code').value;
-  const subject = mode === 'create' ? document.getElementById('subject_select').value : "ok";
-  if (!testCode) return alert("Test kodini kiriting!");
+  saveInputs();
 
   const results = {};
-  let emptyQuestions = [];
+  const emptyQuestions = [];
 
-  for (let i = 1; i <= currentTotalQ; i++) {
-    let row = document.getElementById(`row_${i}`);
-    row.classList.remove('unanswered');
-    if (i <= 35) {
-      const sel = document.querySelector(`input[name="q${i}"]:checked`);
-      results[i] = sel ? sel.value : "";
-      if (!results[i]) { emptyQuestions.push(i); row.classList.add('unanswered'); }
+  for (let i=1; i<=currentTotalQ; i++) {
+    const answers = savedAnswers[`q${i}`] || [];
+    if (answers.length < rowAnsCounts[i]) {
+      // barcha javoblar to‘ldilmagan
+      document.getElementById(`row_${i}`).classList.add('unanswered');
+      emptyQuestions.push(i);
     } else {
-      let count = rowAnsCounts[i] || 1;
-      let subValues = [];
-      for(let j=0; j<count; j++) {
-          let v = document.getElementById(`ans${i}_${j}`).value.trim();
-          if(v) subValues.push(v);
-      }
-      if (subValues.length < count) { emptyQuestions.push(i); row.classList.add('unanswered'); }
-      results[i] = subValues.join('|');
+      document.getElementById(`row_${i}`).classList.remove('unanswered');
+      results[i] = answers.join('|'); // javoblarni '|' bilan ajratish
     }
   }
 
   if (emptyQuestions.length > 0) {
-    alert("Barcha savollarni to'ldiring!");
+    alert('Barcha savollarga javob bering!');
     return;
   }
 
+  // Telegramga yuborish
   tg.sendData(JSON.stringify({
-    type: mode,
-    test_code: testCode,
-    subject: mode === 'create' ? subject : "",
+    type: 'create',
+    test_code: document.getElementById('create_test_code').value.trim(),
+    subject: document.getElementById('subject_select').value,
     keys: results,
-    total: currentTotalQ,
-    configs: rowAnsCounts
+    total: currentTotalQ
   }));
   tg.close();
 }
