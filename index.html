@@ -174,17 +174,29 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Botdan kelgan ma'lumotlarni olish (Bot config yuborishi kerak)
-  // Bu yerda URL orqali kelgan configs'ni tekshiramiz
-  const confRaw = urlParams.get('configs');
-  if(confRaw) {
-      const conf = JSON.parse(decodeURIComponent(confRaw));
-      currentTotalQ = parseInt(urlParams.get('total')) || 45;
-      rowAnsCounts = conf;
-  }
-
   const subject = testMap[code.toString()];
   if (!subject) { alert("⚠️ Xato: Bunday kodli test topilmadi!"); return; }
+
+  // URL'dan barcha testlar uchun konfiguratsiyalarni qidiramiz
+  const confMapRaw = urlParams.get('configs_map');
+  const totalsMapRaw = urlParams.get('totals_map');
+  
+  if(confMapRaw && totalsMapRaw) {
+      try {
+          const allConfigs = JSON.parse(decodeURIComponent(confMapRaw));
+          const allTotals = JSON.parse(decodeURIComponent(totalsMapRaw));
+          
+          // Agar kiritilgan kod uchun maxsus konfiguratsiya bo'lsa, uni yuklaymiz
+          if (allConfigs[code.toString()]) {
+              rowAnsCounts = allConfigs[code.toString()];
+          }
+          if (allTotals[code.toString()]) {
+              currentTotalQ = parseInt(allTotals[code.toString()]);
+          }
+      } catch(e) {
+          console.error("Konfiguratsiyani yuklashda xato:", e);
+      }
+  }
 
   document.getElementById('display_subject').innerText = "Fan: " + subject;
   document.getElementById('info-bar').style.display = 'block';
@@ -192,7 +204,8 @@ function startSolving() {
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
-  renderQuestions();
+  
+  renderQuestions(); // Mana shu yerda yangilangan rowAnsCounts bilan katakchalar chiziladi
   startTimer();
 }
 
@@ -281,4 +294,4 @@ function processData() {
 }
 </script>
 </body>
-</html>
+  </html>
