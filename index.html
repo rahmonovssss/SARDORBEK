@@ -250,11 +250,18 @@ function processData() {
   if (!testCode) return alert("Test kodini kiriting!");
 
   const results = {};
+  const filteredConfigs = {}; // Faqat kerakli configs'larni saqlash uchun
   let emptyQuestions = [];
 
   for (let i = 1; i <= currentTotalQ; i++) {
     let row = document.getElementById(`row_${i}`);
     row.classList.remove('unanswered');
+    
+    // Configs'ni faqat tanlangan savol sonigacha yig'amiz
+    if (i >= 36) {
+        filteredConfigs[i] = rowAnsCounts[i] || 1;
+    }
+
     if (i <= 35) {
       const sel = document.querySelector(`input[name="q${i}"]:checked`);
       results[i] = sel ? sel.value : "";
@@ -282,10 +289,10 @@ function processData() {
     subject: mode === 'create' ? subject : "",
     keys: results,
     total: currentTotalQ,
-    configs: rowAnsCounts // Botga yuboriladi
+    configs: filteredConfigs // Endi 41-45 gacha bo'lgan ortiqcha 1 lar ketmaydi
   }));
   tg.close();
 }
 </script>
 </body>
-</html>
+  </html>
