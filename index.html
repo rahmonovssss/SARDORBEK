@@ -23,7 +23,7 @@
   .checkmark { position: absolute; top: 0; left: 0; height: 22px; width: 22px; background: transparent; border: 2px solid #55606a; border-radius: 50%; z-index: 1; }
   .opt-item input:checked ~ .checkmark { background: var(--accent); border-color: var(--accent); }
   .opt-item input:checked ~ .checkmark::after { content: ""; position: absolute; width: 8px; height: 8px; background: white; border-radius: 50%; top: 7px; left: 7px; }
-  .yopiq-wrapper { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .yopiq-wrapper { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 5px 0; }
   .yopiq-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
   .mini-btn { background: #2d3842; color: white; border: 1px solid #444; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
   .ans-label { font-size: 11px; color: #00b4d8; font-weight: bold; }
@@ -39,6 +39,7 @@
 
 <div id="main-container">
   <div class="header" id="title">Milliy Sertifikat Bot</div>
+  
   <div id="solve-init" class="hidden">
     <div class="card">
       <span class="field-label">Test kodi</span>
@@ -52,6 +53,7 @@
     <div id="info-bar" class="card" style="text-align: center; display: none;">
         <span id="display_subject" class="subject-badge"></span>
     </div>
+    
     <div id="create-header" class="card hidden">
       <span class="field-label">Fanni tanlang</span>
       <select id="subject_select">
@@ -76,7 +78,6 @@
     </div>
 
     <div style="margin: 20px 0;">
-      <div id="error_msg" style="color: #ff4d4d; text-align: center; margin-bottom: 10px; display: none;">Balans yetarli emas!</div>
       <button class="btn" id="submit_btn" onclick="processData()">SAQLASH</button>
     </div>
   </div>
@@ -87,20 +88,24 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 const urlParams = new URLSearchParams(window.location.search);
 const mode = urlParams.get('mode') || 'create';
-const userBalance = parseInt(urlParams.get('balance')) || 0;
-const testCount = parseInt(urlParams.get('count')) || 0;
 
 let testMap = {};
+let allConfigs = {}; // Barcha testlarning configlari
 let currentTotalQ = 45;
 let rowAnsCounts = {};
 let savedAnswers = {};
 
+// Botdan kelgan test ma'lumotlarini yuklash
 try {
   const rawData = urlParams.get('test_data');
   if(rawData) testMap = JSON.parse(decodeURIComponent(rawData));
-} catch(e) { console.error("Xato"); }
+  
+  const rawConfigs = urlParams.get('configs');
+  if(rawConfigs) allConfigs = JSON.parse(decodeURIComponent(rawConfigs));
+} catch(e) { console.error("Data parse error"); }
 
 window.onload = () => {
+  // Boshlang'ich holatda 36-45 savollar uchun 1 tadan katakcha
   for(let i=36; i<=45; i++) rowAnsCounts[i] = 1;
 
   if (mode === 'create') {
@@ -109,10 +114,6 @@ window.onload = () => {
     document.getElementById('q_total_control').classList.remove('hidden');
     document.getElementById('test-area').classList.remove('hidden');
     renderQuestions();
-    if (testCount >= 1 && userBalance < 2000) {
-        document.getElementById('submit_btn').disabled = true;
-        document.getElementById('error_msg').style.display = 'block';
-    }
   } else {
     document.getElementById('title').innerText = "Javob yuborish";
     document.getElementById('solve-init').classList.remove('hidden');
@@ -120,12 +121,13 @@ window.onload = () => {
 };
 
 function saveInputs() {
-    for (let i = 1; i <= 45; i++) {
+    for (let i = 1; i <= currentTotalQ; i++) {
         if (i <= 35) {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
         } else {
-            for (let j = 0; j < 5; j++) {
+            let count = rowAnsCounts[i] || 1;
+            for (let j = 0; j < count; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
                 if (el) savedAnswers[`ans${i}_${j}`] = el.value;
             }
@@ -141,9 +143,12 @@ function restoreInputs() {
                 if (rb) rb.checked = true;
             }
         } else {
-            for (let j = 0; j < 5; j++) {
+            let count = rowAnsCounts[i] || 1;
+            for (let j = 0; j < count; j++) {
                 const el = document.getElementById(`ans${i}_${j}`);
-                if (el && savedAnswers[`ans${i}_${j}`]) el.value = savedAnswers[`ans${i}_${j}`];
+                if (el && savedAnswers[`ans${i}_${j}`] !== undefined) {
+                    el.value = savedAnswers[`ans${i}_${j}`];
+                }
             }
         }
     }
@@ -174,21 +179,17 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Yaratuvchi tomonidan yuborilgan total va configs ni olish
-  const totalVal = urlParams.get('total');
-  const confRaw = urlParams.get('configs');
-
-  if(totalVal) {
-      currentTotalQ = parseInt(totalVal);
-  }
-  if(confRaw) {
-      try {
-          rowAnsCounts = JSON.parse(decodeURIComponent(confRaw));
-      } catch(e) { console.error("Config error"); }
-  }
-
   const subject = testMap[code.toString()];
-  if (!subject) { alert("⚠️ Xato: Bunday kodli test topilmadi!"); return; }
+  if (!subject) { alert("⚠️ Bunday kodli test topilmadi!"); return; }
+
+  // Botdan kelgan ushbu testga tegishli config (javob katakchalari soni)
+  if(allConfigs[code.toString()]) {
+      rowAnsCounts = allConfigs[code.toString()];
+      // Oxirgi savol raqamini aniqlash (masalan, 42-savol bo'lsa oxirgisi)
+      let maxQ = 0;
+      Object.keys(rowAnsCounts).forEach(k => { if(parseInt(k) > maxQ) maxQ = parseInt(k); });
+      if(maxQ > 0) currentTotalQ = maxQ;
+  }
 
   document.getElementById('display_subject').innerText = "Fan: " + subject;
   document.getElementById('info-bar').style.display = 'block';
@@ -196,14 +197,12 @@ function startSolving() {
   document.getElementById('test-area').classList.remove('hidden');
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
-  
-  // Ma'lumotlar olingandan keyin jadvalni yangidan chizamiz
   renderQuestions();
   startTimer();
 }
 
 function renderQuestions() {
-  let html = `<table><tr><th>№</th><th>Variantlar</th></tr>`;
+  let html = `<table><tr><th style="width:15%">№</th><th>Variantlar / Javoblar</th></tr>`;
   for (let i = 1; i <= currentTotalQ; i++) {
     if (i <= 35) {
       const cols = i <= 32 ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -217,10 +216,9 @@ function renderQuestions() {
       html += `<tr id="row_${i}"><td><b>${i}</b></td><td><div class="yopiq-wrapper">`;
       
       if (mode === 'create') {
-          let label = count > 1 ? count + " ta Javob" : "Javob";
           html += `<div class="yopiq-controls">
                 <button class="mini-btn" onclick="changeAnsCount(${i}, -1)">-</button>
-                <span class="ans-label">${label}</span>
+                <span class="ans-label">${count} ta javob</span>
                 <button class="mini-btn" onclick="changeAnsCount(${i}, 1)">+</button>
             </div>`;
       }
@@ -249,7 +247,7 @@ function processData() {
   if (!testCode) return alert("Test kodini kiriting!");
 
   const results = {};
-  let emptyQuestions = [];
+  let emptyCount = 0;
 
   for (let i = 1; i <= currentTotalQ; i++) {
     let row = document.getElementById(`row_${i}`);
@@ -257,7 +255,7 @@ function processData() {
     if (i <= 35) {
       const sel = document.querySelector(`input[name="q${i}"]:checked`);
       results[i] = sel ? sel.value : "";
-      if (!results[i]) { emptyQuestions.push(i); row.classList.add('unanswered'); }
+      if (!results[i]) { emptyCount++; row.classList.add('unanswered'); }
     } else {
       let count = rowAnsCounts[i] || 1;
       let subValues = [];
@@ -265,25 +263,23 @@ function processData() {
           let v = document.getElementById(`ans${i}_${j}`).value.trim();
           if(v) subValues.push(v);
       }
-      if (subValues.length < count) { emptyQuestions.push(i); row.classList.add('unanswered'); }
+      if (subValues.length < count) { emptyCount++; row.classList.add('unanswered'); }
       results[i] = subValues.join('|');
     }
   }
 
-  if (emptyQuestions.length > 0) {
-    alert("Barcha savollarni to'ldiring!");
+  if (emptyCount > 0) {
+    alert("Barcha savollarga javob bering!");
     return;
   }
 
   tg.sendData(JSON.stringify({
     type: mode,
     test_code: testCode,
-    subject: mode === 'create' ? subject : "",
+    subject: subject,
     keys: results,
-    total: currentTotalQ,
-    configs: rowAnsCounts
+    configs: rowAnsCounts // Botga javob katakchalari sonini yuboramiz
   }));
-  tg.close();
 }
 </script>
 </body>
