@@ -120,7 +120,7 @@ window.onload = () => {
 };
 
 function saveInputs() {
-    for (let i = 1; i <= currentTotalQ; i++) {
+    for (let i = 1; i <= 45; i++) {
         if (i <= 35) {
             const sel = document.querySelector(`input[name="q${i}"]:checked`);
             savedAnswers[`q${i}`] = sel ? sel.value : null;
@@ -174,20 +174,17 @@ function startSolving() {
   const code = document.getElementById('solve_test_code').value;
   if(!code) return alert("Kodni kiriting!");
   
-  // Yaratuvchi tomonidan yuborilgan sozlamalarni URL'dan olish
+  // Yaratuvchi tomonidan yuborilgan total va configs ni olish
+  const totalVal = urlParams.get('total');
   const confRaw = urlParams.get('configs');
-  const totalRaw = urlParams.get('total');
 
+  if(totalVal) {
+      currentTotalQ = parseInt(totalVal);
+  }
   if(confRaw) {
       try {
-          // rowAnsCounts ni yangilaymiz (qaysi savolda nechta katak borligi)
           rowAnsCounts = JSON.parse(decodeURIComponent(confRaw));
-      } catch(e) { console.error("Config yuklashda xato"); }
-  }
-  
-  if(totalRaw) {
-      // Umumiy savollar sonini yangilaymiz (masalan, 45 ta)
-      currentTotalQ = parseInt(totalRaw);
+      } catch(e) { console.error("Config error"); }
   }
 
   const subject = testMap[code.toString()];
@@ -200,7 +197,7 @@ function startSolving() {
   document.getElementById('timer').classList.remove('hidden');
   document.getElementById('submit_btn').innerText = "YUBORISH";
   
-  // Yangilangan rowAnsCounts va currentTotalQ bilan jadvalni chizamiz
+  // Ma'lumotlar olingandan keyin jadvalni yangidan chizamiz
   renderQuestions();
   startTimer();
 }
@@ -284,7 +281,7 @@ function processData() {
     subject: mode === 'create' ? subject : "",
     keys: results,
     total: currentTotalQ,
-    configs: rowAnsCounts 
+    configs: rowAnsCounts
   }));
   tg.close();
 }
